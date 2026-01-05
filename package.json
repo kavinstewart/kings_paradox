@@ -1,0 +1,37 @@
+{
+  "name": "kings_paradox",
+  "version": "1.0.0",
+  "description": "> A \"Pocket Paradox\" King Simulator — where infinite player freedom meets iron consequences.",
+  "main": "index.js",
+  "directories": {
+    "doc": "docs",
+    "test": "tests"
+  },
+  "scripts": {
+    "eval:t01": "promptfoo eval --config tests/t01_knowledge/promptfoo.yaml",
+    "eval:t02": "promptfoo eval --config tests/t02_consistency/promptfoo.yaml",
+    "eval:t03": "promptfoo eval --config tests/t03_rumor_mutation/promptfoo.yaml",
+    "eval:t04": "promptfoo eval --config tests/t04_telephone/promptfoo.yaml",
+    "eval:t05": "promptfoo eval --config tests/t05_narrative_bridging/promptfoo.yaml",
+    "eval:t06": "promptfoo eval --config tests/t06_selective_memory/promptfoo.yaml",
+    "eval:t09": "promptfoo eval --config tests/t09_justified_killing/promptfoo.yaml",
+    "eval:t10": "promptfoo eval --config tests/t10_conspiracy_detection/promptfoo.yaml",
+    "eval:all": "npm run eval:t01 && npm run eval:t02 && npm run eval:t03 && npm run eval:t04 && npm run eval:t05 && npm run eval:t06 && npm run eval:t09 && npm run eval:t10",
+    "redteam:t01": "promptfoo redteam run --config tests/t01_knowledge/redteam.yaml",
+    "view": "promptfoo view"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/kavinstewart/kings_paradox.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/kavinstewart/kings_paradox/issues"
+  },
+  "homepage": "https://github.com/kavinstewart/kings_paradox#readme",
+  "devDependencies": {
+    "promptfoo": "^0.120.8"
+  }
+}

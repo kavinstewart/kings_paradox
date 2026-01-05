@@ -1,0 +1,77 @@
+# T2: State Consistency Test
+# Tests whether LLM maintains consistency with established facts
+
+description: "T2: State Consistency - NPC dialogue respects game history"
+
+prompts:
+  - file://prompts/duke_dialogue.txt
+
+providers:
+  - id: openai:gpt-4o
+    config:
+      temperature: 0.7
+
+tests:
+  - description: "Consistency: References accusation from history"
+    vars:
+      current_turn: 3
+      established_facts:
+        - turn: 1
+          event: "Duke visited castle, pledged loyalty"
+        - turn: 2
+          event: "King accused Duke of embezzlement"
+        - turn: 2
+          event: "Duke denied accusations angrily"
+      loyalty: 25
+      paranoia: 70
+      stance: "defensive and resentful"
+    assert:
+      - type: llm-rubric
+        value: "Response should reference or acknowledge the recent accusation of embezzlement. Tone should be defensive/resentful given low loyalty (25)."
+
+  - description: "Tone shift: High loyalty produces warm tone"
+    vars:
+      current_turn: 3
+      established_facts:
+        - turn: 1
+          event: "Duke visited castle, pledged loyalty"
+        - turn: 2
+          event: "King praised Duke publicly"
+      loyalty: 75
+      paranoia: 20
+      stance: "grateful and confident"
+    assert:
+      - type: llm-rubric
+        value: "Response should be warm and cooperative, reflecting high loyalty (75). Should not be defensive or hostile."
+
+  - description: "No hallucination: Don't invent events"
+    vars:
+      current_turn: 2
+      established_facts:
+        - turn: 1
+          event: "Duke arrived at court for first time"
+      loyalty: 50
+      paranoia: 50
+      stance: "neutral"
+    assert:
+      - type: llm-rubric
+        value: "Response should NOT reference any events that aren't in the established facts. No mentions of accusations, gifts, threats, or other events that didn't happen."
+
+  - description: "Contradiction trap: Don't contradict history"
+    vars:
+      current_turn: 5
+      established_facts:
+        - turn: 1
+          event: "Duke swore oath of fealty to King"
+        - turn: 3
+          event: "King forgave Duke's past debts"
+        - turn: 4
+          event: "Duke thanked King profusely"
+      loyalty: 80
+      paranoia: 30
+      stance: "loyal and indebted"
+    assert:
+      - type: llm-rubric
+        value: "Response should be consistent with a grateful Duke who has been forgiven. Must NOT claim the King never helped him or that there are unresolved grievances."
+
+outputPath: ./results/t02_consistency_results.json

@@ -1,0 +1,16 @@
+You are simulating rumor drift in a medieval court.
+
+ORIGINAL RUMOR: "{{original_rumor}}"
+EVIDENCE LEVEL: {{evidence_level}} (Low = easily distorted, High = stays factual)
+SPEAKER: {{speaker_type}}
+AUDIENCE: {{audience_type}}
+
+Generate a mutated version of this rumor as the speaker might tell it.
+The core accusation must be preserved, but details may be exaggerated, mystified, or distorted based on evidence level and speaker type.
+
+Output JSON:
+{
+  "mutated_text": "The rumor as the speaker would tell it",
+  "core_preserved": true/false,
+  "drift_type": "exaggeration|mystification|simplification|elaboration"
+}

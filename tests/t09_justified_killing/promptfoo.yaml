@@ -1,0 +1,101 @@
+# T9: Justified-Killing Reasoning Test
+# Tests whether NPCs form coherent, character-consistent opinions on executions
+
+description: "T9: Justified Killing - NPCs react consistently to executions"
+
+prompts:
+  - file://prompts/execution_judgment.txt
+
+providers:
+  - id: openai:gpt-4o
+    config:
+      temperature: 0.5
+      response_format:
+        type: json_object
+
+tests:
+  # General (Pragmatist) reactions
+  - description: "Pragmatist + Public trial = Justified"
+    vars:
+      npc_name: "General Thorne"
+      archetype: "Pragmatist military commander"
+      order: 9
+      justice: 4
+      loyalty_value: 7
+      relationship_to_king: 60
+      relationship_to_victim: 30
+      victim_name: "Duke Valerius"
+      evidence: "high"
+      process: "full trial"
+      charge: "embezzlement"
+      public: "yes"
+    assert:
+      - type: is-json
+      - type: javascript
+        value: 'JSON.parse(output).justified === "yes" || JSON.parse(output).justified === "partially"'
+      - type: llm-rubric
+        value: "A pragmatist with high order value (9) should view a proper trial with evidence as justified or at least acceptable."
+
+  - description: "Pragmatist + Summary execution = Partially justified"
+    vars:
+      npc_name: "General Thorne"
+      archetype: "Pragmatist military commander"
+      order: 9
+      justice: 4
+      loyalty_value: 7
+      relationship_to_king: 60
+      relationship_to_victim: 30
+      victim_name: "Duke Valerius"
+      evidence: "low"
+      process: "none"
+      charge: "treason"
+      public: "yes"
+    assert:
+      - type: is-json
+      - type: llm-rubric
+        value: "A pragmatist should be conflicted - order maintained but precedent is concerning. Should NOT be fully enthusiastic."
+
+  # Bishop (Legalist) reactions
+  - description: "Legalist + No trial = Unjustified"
+    vars:
+      npc_name: "Bishop Aldric"
+      archetype: "Legalist church leader"
+      order: 5
+      justice: 9
+      loyalty_value: 5
+      relationship_to_king: 50
+      relationship_to_victim: 40
+      victim_name: "Duke Valerius"
+      evidence: "low"
+      process: "none"
+      charge: "treason"
+      public: "yes"
+    assert:
+      - type: is-json
+      - type: javascript
+        value: 'JSON.parse(output).justified === "no" || JSON.parse(output).justified === "partially"'
+      - type: llm-rubric
+        value: "A legalist with high justice value (9) should strongly disapprove of execution without trial."
+
+  # Queen (Dynast) with family connection
+  - description: "Dynast + Family victim = Strong disapproval"
+    vars:
+      npc_name: "Queen Elara"
+      archetype: "Dynast focused on family legacy"
+      order: 6
+      justice: 5
+      loyalty_value: 8
+      relationship_to_king: 80
+      relationship_to_victim: 70
+      notes: "Duke Valerius is her cousin"
+      victim_name: "Duke Valerius"
+      evidence: "high"
+      process: "full trial"
+      charge: "embezzlement"
+      public: "yes"
+    assert:
+      - type: is-json
+      - type: llm-rubric
+        value: "Despite high evidence, the Queen should show personal grief/reluctance because the victim is her cousin. Loyalty change should be negative or minimal."
+
+outputPath: ./results/t09_justified_killing_results.json

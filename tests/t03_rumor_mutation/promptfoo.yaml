@@ -1,0 +1,56 @@
+# T3: Rumor Mutation Tracking Test
+# Tests whether rumors mutate while preserving core accusations
+
+description: "T3: Rumor Mutation - Core preserved through drift"
+
+prompts:
+  - file://prompts/rumor_mutator.txt
+
+providers:
+  - id: openai:gpt-4o
+    config:
+      temperature: 0.8
+      response_format:
+        type: json_object
+
+tests:
+  - description: "Low evidence: Peasant mystification"
+    vars:
+      original_rumor: "The King is not the true son of the late King"
+      evidence_level: "Low"
+      speaker_type: "Superstitious peasant"
+      audience_type: "Other peasants at a tavern"
+    assert:
+      - type: is-json
+      - type: javascript
+        value: "JSON.parse(output).core_preserved === true"
+      - type: llm-rubric
+        value: "The mutated rumor should still accuse the King of not being legitimate, even if the details are mystified or exaggerated."
+
+  - description: "High evidence: Noble retelling"
+    vars:
+      original_rumor: "The King murdered his brother with poison in the tower"
+      evidence_level: "High"
+      speaker_type: "Cautious nobleman"
+      audience_type: "Trusted ally"
+    assert:
+      - type: is-json
+      - type: javascript
+        value: "JSON.parse(output).core_preserved === true"
+      - type: llm-rubric
+        value: "With high evidence, the core facts (King, murder, brother) should be preserved with minimal distortion."
+
+  - description: "Second-order mutation"
+    vars:
+      original_rumor: "The King has tainted blood from his mother's sin"
+      evidence_level: "Low"
+      speaker_type: "Fearful servant"
+      audience_type: "Other servants"
+    assert:
+      - type: is-json
+      - type: javascript
+        value: "JSON.parse(output).core_preserved === true"
+      - type: llm-rubric
+        value: "Even mutated rumors should preserve the core accusation that something is wrong with the King's bloodline/legitimacy."
+
+outputPath: ./results/t03_rumor_mutation_results.json

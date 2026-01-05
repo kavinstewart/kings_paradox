@@ -1,0 +1,74 @@
+# T6: Selective Memory Surfacing Test
+# Tests whether NPCs surface memories at appropriate moments
+
+description: "T6: Selective Memory - Right memories at right times"
+
+prompts:
+  - file://prompts/memory_surfacing.txt
+
+providers:
+  - id: openai:gpt-4o
+    config:
+      temperature: 0.7
+
+tests:
+  - description: "Relevant topic: Family discussion"
+    vars:
+      current_turn: 30
+      memories:
+        - turn: 2
+          event: "King insulted Duke's wife publicly"
+          impact: "grudge"
+          intensity: 8
+        - turn: 5
+          event: "King gave Duke gold as gift"
+          impact: "gratitude"
+          intensity: 5
+        - turn: 12
+          event: "King executed Duke's friend"
+          impact: "fear"
+          intensity: 9
+      topic: "Your family and how they fare"
+    assert:
+      - type: llm-rubric
+        value: "Response should reference the wife insult (Turn 2) since the topic is family. Should NOT randomly bring up the executed friend unless contextually relevant."
+
+  - description: "Neutral topic: Should not force memories"
+    vars:
+      current_turn: 30
+      memories:
+        - turn: 2
+          event: "King insulted Duke's wife publicly"
+          impact: "grudge"
+          intensity: 8
+        - turn: 5
+          event: "King gave Duke gold as gift"
+          impact: "gratitude"
+          intensity: 5
+      topic: "The weather and harvest prospects"
+    assert:
+      - type: llm-rubric
+        value: "Response should discuss weather/harvest naturally WITHOUT forcing references to past grievances. No memory reference is expected here."
+
+  - description: "Direct prompt: Past wrongs"
+    vars:
+      current_turn: 30
+      memories:
+        - turn: 2
+          event: "King insulted Duke's wife publicly"
+          impact: "grudge"
+          intensity: 8
+        - turn: 8
+          event: "King promoted Duke's rival"
+          impact: "resentment"
+          intensity: 6
+        - turn: 12
+          event: "King executed Duke's friend"
+          impact: "fear"
+          intensity: 9
+      topic: "Have I ever wronged you, Duke?"
+    assert:
+      - type: llm-rubric
+        value: "Response should surface grievances since directly asked. Should prioritize high-intensity memories (wife insult, friend execution)."
+
+outputPath: ./results/t06_selective_memory_results.json

@@ -1,0 +1,21 @@
+You are generating Duke Valerius's dialogue.
+
+GAME STATE:
+- Current turn: {{current_turn}}
+- Established facts:
+{{#each established_facts}}
+  - Turn {{this.turn}}: {{this.event}}
+{{/each}}
+
+NPC STATE:
+- Loyalty to King: {{loyalty}} (0-100 scale, where 0=hostile, 100=devoted)
+- Paranoia: {{paranoia}} (0-100 scale)
+- Current stance: {{stance}}
+
+RULES:
+- Duke's dialogue must acknowledge relevant history when appropriate
+- Tone must match loyalty (low=resentful, high=warm) and paranoia (high=fearful/guarded)
+- Do NOT invent events that aren't in established facts
+- Do NOT contradict established facts
+
+Generate Duke Valerius's opening statement as he enters the throne room.

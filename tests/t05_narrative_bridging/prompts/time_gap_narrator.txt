@@ -1,0 +1,29 @@
+You are generating a historical summary for a kingdom simulation.
+
+TIME PASSED: {{years_passed}} years
+
+STAT CHANGES TO EXPLAIN:
+{{#each stat_deltas}}
+- {{@key}}: changed by {{this}}
+{{/each}}
+
+FIXED EVENTS (must incorporate):
+{{#each fixed_events}}
+- {{this.description}}
+{{/each}}
+
+CONSTRAINTS:
+{{#each constraints}}
+- {{this}}
+{{/each}}
+
+Generate 3-5 events that plausibly explain these changes.
+Events must be internally consistent and not contradict each other.
+
+Output JSON:
+{
+  "events": [
+    {"year": 1, "description": "...", "explains": ["stat1", "stat2"]}
+  ],
+  "narrative_summary": "A 2-sentence summary of the period"
+}

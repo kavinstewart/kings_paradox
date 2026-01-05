@@ -1,0 +1,51 @@
+# T5: Narrative Bridging Test
+# Tests whether LLM generates coherent history from stat changes
+
+description: "T5: Narrative Bridging - Time gaps explained coherently"
+
+prompts:
+  - file://prompts/time_gap_narrator.txt
+
+providers:
+  - id: openai:gpt-4o
+    config:
+      temperature: 0.7
+      response_format:
+        type: json_object
+
+tests:
+  - description: "Decline narrative: Treasury and loyalty drop"
+    vars:
+      years_passed: 10
+      stat_deltas:
+        treasury: -60
+        stability: -15
+        duke_loyalty: -25
+      fixed_events:
+        - description: "The Bishop died (cause to be determined)"
+      constraints:
+        - "No foreign wars occurred"
+        - "No natural disasters"
+    assert:
+      - type: is-json
+      - type: llm-rubric
+        value: "Events must be internally consistent (no contradictions like 'years of peace' AND 'constant military deployment'). Must explain the magnitude of treasury loss (-60)."
+      - type: llm-rubric
+        value: "Must incorporate the Bishop's death and provide a plausible cause."
+
+  - description: "Growth narrative: Positive changes"
+    vars:
+      years_passed: 5
+      stat_deltas:
+        treasury: +30
+        stability: +20
+        general_loyalty: +15
+      fixed_events: []
+      constraints:
+        - "The King did not leave the capital"
+    assert:
+      - type: is-json
+      - type: llm-rubric
+        value: "Events should explain positive growth without contradicting the constraint that the King stayed in the capital."
+
+outputPath: ./results/t05_narrative_bridging_results.json

@@ -1,0 +1,75 @@
+# T10: Conspiracy Detection Tuning Test
+# Tests whether conspiracies are detectable but not obvious
+
+description: "T10: Conspiracy Detection - Signals vs Noise calibration"
+
+prompts:
+  - file://prompts/npc_court_behavior.txt
+
+providers:
+  - id: openai:gpt-4o
+    config:
+      temperature: 0.7
+
+tests:
+  # Conspirator behavior tests
+  - description: "Conspirator: Subtle reaction to loyalty discussion"
+    vars:
+      npc_name: "Duke Valerius"
+      loyalty: 40
+      is_conspirator: true
+      co_conspirators: "Bishop Aldric"
+      king_announcement: "I have been thinking about loyalty lately. Who among you would stand with me if rebellion came?"
+    assert:
+      - type: llm-rubric
+        value: "Response should show SUBTLE nervousness or discomfort. Should NOT be so obvious as 'Duke Valerius gulped nervously and looked at Bishop Aldric'. Should NOT explicitly mention the conspiracy."
+      - type: not-contains
+        value: "conspiracy"
+      - type: not-contains
+        value: "plot"
+
+  - description: "Conspirator: Defending co-conspirator"
+    vars:
+      npc_name: "Duke Valerius"
+      loyalty: 40
+      is_conspirator: true
+      co_conspirators: "Bishop Aldric"
+      king_announcement: "I find Bishop Aldric's recent behavior... concerning. He seems distracted during council meetings."
+    assert:
+      - type: llm-rubric
+        value: "Duke may subtly defend the Bishop, but not suspiciously so. Should feel natural, not like a red flag."
+
+  # Innocent NPC behavior (noise)
+  - description: "Innocent: Nervous for mundane reasons"
+    vars:
+      npc_name: "General Thorne"
+      loyalty: 70
+      is_conspirator: false
+      king_announcement: "I have been thinking about loyalty lately. Who among you would stand with me if rebellion came?"
+    assert:
+      - type: llm-rubric
+        value: "Response should be confident/loyal. If any nervousness, it should clearly relate to mundane concerns (military readiness, border threats), NOT appear like conspiracy guilt."
+
+  - description: "Innocent: Natural court behavior"
+    vars:
+      npc_name: "Queen Elara"
+      loyalty: 85
+      is_conspirator: false
+      king_announcement: "The harvest reports are promising. Our granaries will be full this winter."
+    assert:
+      - type: llm-rubric
+        value: "Response should be natural and appropriate. No suspicious behavior. This is the 'baseline' innocent behavior."
+
+  # Comparative test: Can evaluator distinguish?
+  - description: "Distinguishability: Conspirator signals are detectable"
+    vars:
+      npc_name: "Bishop Aldric"
+      loyalty: 35
+      is_conspirator: true
+      co_conspirators: "Duke Valerius"
+      king_announcement: "Someone in this court is not what they seem. I can feel it."
+    assert:
+      - type: llm-rubric
+        value: "Response should contain SOME detectable signal of guilt/nervousness that an attentive player could notice - but NOT so blatant that it's obvious. The signal should be 'I might be hiding something' not 'I am definitely plotting'."
+
+outputPath: ./results/t10_conspiracy_detection_results.json

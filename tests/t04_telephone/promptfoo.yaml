@@ -1,0 +1,49 @@
+# T4: Telephone Consistency Test
+# Tests whether secrets survive multi-NPC retelling
+
+description: "T4: Telephone Consistency - Core facts survive retelling"
+
+prompts:
+  - file://prompts/secret_retelling.txt
+
+providers:
+  - id: openai:gpt-4o
+    config:
+      temperature: 0.7
+
+tests:
+  - description: "Hop 1: Duke to Bishop"
+    vars:
+      npc_name: "Bishop Aldric"
+      previous_version: "The King murdered his brother with poison in the tower."
+      personality: "Pious, formal, speaks in religious metaphors"
+      next_recipient: "General Thorne"
+    assert:
+      - type: llm-rubric
+        value: "Response must preserve: King is the subject, murder is the action, brother is the victim. Method (poison) and location (tower) may drift."
+      - type: contains
+        value: "King"
+      - type: llm-rubric
+        value: "The word 'murder' or a clear synonym (killed, slew, took the life of) must be present."
+
+  - description: "Hop 2: Bishop to General"
+    vars:
+      npc_name: "General Thorne"
+      previous_version: "The King, may God have mercy, took his own brother's life through vile poison."
+      personality: "Blunt military man, distrusts politics"
+      next_recipient: "the player"
+    assert:
+      - type: llm-rubric
+        value: "Core facts (King killed brother) must be preserved despite personality filter."
+
+  - description: "Hostile retelling: NPC who hates King"
+    vars:
+      npc_name: "Lord Blackwood"
+      previous_version: "The King murdered his brother with poison in the tower."
+      personality: "Bitter enemy of the King, wants to see him fall"
+      next_recipient: "a potential ally"
+    assert:
+      - type: llm-rubric
+        value: "May editorialize or emphasize the King's guilt, but core facts (King, murder, brother) must remain accurate. Must NOT change who killed whom."
+
+outputPath: ./results/t04_telephone_results.json

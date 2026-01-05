@@ -62,3 +62,10 @@ promptfoo-results/
 .env.local
 *.pem
 *.key
+
+# Node
+node_modules/
+package-lock.json
+
+# Beads (local task tracking db)
+.beads/
