@@ -1,0 +1,357 @@
+# T1b: NPC Decision-Making Scenarios
+# Tests whether LLM makes rational decisions based on character context
+#
+# Dimensions varied:
+# - Duke personality (risk-averse, brave, cowardly, ambitious)
+# - King trustworthiness (high, medium, low, chaotic)
+# - Situation (leverage, no leverage, caught, threatened)
+# - Stakes (low, medium, high)
+
+# =============================================================================
+# BUILDING BLOCKS - Mix and match these
+# =============================================================================
+
+personalities:
+  risk_averse_calculator:
+    description: "Calculating, patient, risk-averse"
+    framework: calculator
+    text: |
+      - Calculating, patient, methodical
+      - You carefully weigh risks before acting
+      - You prefer certain smaller gains over uncertain larger ones
+      - You never act impulsively
+    goals: |
+      1. Survival (paramount - you will not risk death for abstract principles)
+      2. Increase political power gradually
+      3. Protect your family's position
+      4. Keep the secret as leverage (but not at cost of #1)
+
+  brave_loyalist:
+    description: "Honorable, brave, conflicted about the secret"
+    framework: loyalist
+    text: |
+      - Honorable and brave, you face consequences rather than flee
+      - You are conflicted about holding this secret
+      - You value your word and integrity above advancement
+      - You would die before betraying a true oath
+    goals: |
+      1. Maintain your honor and integrity
+      2. Serve the realm's stability
+      3. Protect the innocent from harm
+      4. Survive (but not at cost of honor)
+
+  cowardly_survivor:
+    description: "Fearful, self-preserving, will break under pressure"
+    framework: coward
+    text: |
+      - You are fundamentally afraid of pain and death
+      - You will say almost anything to survive
+      - You rationalize betrayal as pragmatism
+      - You sweat visibly when threatened
+    goals: |
+      1. Survive at any cost
+      2. Avoid pain and suffering
+      3. Maintain comfort and position
+      4. Everything else is negotiable
+
+  ambitious_schemer:
+    description: "Power-hungry, calculating, will betray for advancement"
+    framework: schemer
+    text: |
+      - You crave power above all else
+      - You see every interaction as a transaction
+      - Loyalty is a tool, not a value
+      - You will betray anyone if the price is right
+    goals: |
+      1. Become the most powerful person in the realm
+      2. Accumulate wealth and influence
+      3. Eliminate rivals
+      4. Survival (but will take risks for power)
+
+king_profiles:
+  extremely_trustworthy:
+    description: "Honorable king who always keeps his word"
+    text: |
+      - The King has ALWAYS kept his promises, even costly ones
+      - He pardoned Lord Ashford after promising mercy, despite pressure to execute
+      - He honored a deal with the Southern rebels that cost him territory
+      - He has never broken his word in the 12 years you've known him
+      - You estimate 95% chance he will honor any deal he makes
+    history: |
+      - 3 years ago: Promised Lord Ashford mercy if he confessed. Kept it - Ashford lives in comfortable exile.
+      - 5 years ago: Promised rebels safe passage. Honored it despite his generals' objections.
+      - 8 years ago: Promised your father a position. Delivered it within the month.
+      - You have never witnessed or heard of the King breaking his word.
+
+  medium_trustworthy:
+    description: "Pragmatic king, keeps word when convenient"
+    text: |
+      - The King usually keeps his word, but has broken it when stakes were high
+      - He honored his deal with Lord Ashford (minor stakes)
+      - But he executed the rebel leaders despite safe passage promise (high stakes)
+      - He tends to keep promises to nobles but not to commoners
+      - You estimate 60% chance he will honor a high-stakes deal
+    history: |
+      - 3 years ago: Kept promise to Lord Ashford (minor political cost).
+      - 5 years ago: Broke promise to rebels, had leaders executed (claimed they violated terms first).
+      - 7 years ago: Promised tax relief to merchants, quietly abandoned it.
+      - Pattern: Keeps word when easy, finds excuses when hard.
+
+  untrustworthy:
+    description: "Machiavellian king who breaks promises strategically"
+    text: |
+      - The King views promises as tools, not obligations
+      - He has broken multiple oaths when it suited him
+      - He executed Lord Morrow AFTER Morrow confessed under promise of mercy
+      - He uses false promises to extract information, then acts as he pleases
+      - You estimate 15% chance he will honor any deal involving your knowledge
+    history: |
+      - 2 years ago: Promised Lord Morrow mercy for confession. Morrow confessed. King executed him anyway, saying "mercy was for lesser crimes."
+      - 4 years ago: Promised his brother safety. Had him imprisoned within the year.
+      - 6 years ago: Swore to the church he would not tax monasteries. Taxed them.
+      - His council says "The King's word is wind."
+
+  chaotic_unpredictable:
+    description: "Unstable king with erratic behavior"
+    text: |
+      - The King's behavior is erratic and unpredictable
+      - He has kept some promises and broken others with no clear pattern
+      - His moods swing wildly - generous one day, cruel the next
+      - His decisions seem to depend on his emotional state, not reason
+      - You genuinely cannot predict what he will do - maybe 50% chance either way
+    history: |
+      - Last month: Pardoned a thief on a whim, then executed a servant for spilling wine.
+      - 2 years ago: Promised Lord Ashford a reward, gave it. Promised Lord Vance a reward, forgot entirely.
+      - He once changed his mind three times in a single audience about a prisoner's fate.
+      - His courtiers say: "The King woke up kind today" or "The King woke up cruel today."
+
+situations:
+  casual_conversation:
+    description: "Low stakes, no pressure"
+    text: |
+      - This is a routine audience, nothing unusual
+      - No one suspects you of anything
+      - The King seems in good spirits
+      - There are several courtiers present
+
+  private_suspicion:
+    description: "King suspects something, private meeting"
+    text: |
+      - The King has requested a private audience
+      - He has dismissed all guards and servants
+      - His tone suggests he suspects something
+      - You are alone with him, no witnesses
+
+  direct_accusation:
+    description: "King accuses you directly"
+    text: |
+      - The King has accused you of hiding something
+      - Guards are present but at a distance
+      - The King's tone is threatening
+      - Others in court are watching
+
+  torture_imminent:
+    description: "You are about to be tortured"
+    text: |
+      - You have been arrested and brought to the dungeon
+      - The torturer's implements are laid out before you
+      - The King offers you one chance to speak before the pain begins
+      - There is no one to rescue you
+
+  leverage_position:
+    description: "You have leverage - others know you have info"
+    text: |
+      - You have let it be known that you possess damaging information
+      - You have arranged for the information to be released if you die
+      - The King knows that killing you will expose the secret
+      - You are negotiating from a position of strength
+
+  caught_with_evidence:
+    description: "The King has found the letter"
+    text: |
+      - The King's spymaster has found the midwife's letter in your chambers
+      - The King holds it in his hand as he speaks to you
+      - There is no point denying you had it
+      - The question now is what you knew and who else knows
+
+# =============================================================================
+# TEST SCENARIOS - Combinations with expected outcomes
+# =============================================================================
+
+scenarios:
+  # ---------------------------------------------------------------------------
+  # BASELINE: No pressure, should keep secret regardless
+  # ---------------------------------------------------------------------------
+  - id: baseline_casual
+    name: "Baseline: Casual conversation, no pressure"
+    personality: risk_averse_calculator
+    king_profile: medium_trustworthy
+    situation: casual_conversation
+    king_says: "Duke Valerius, how are things in your province?"
+    expected_behavior: "keep_secret"
+    rationale: "No reason to reveal. No pressure. Rational actor keeps secret."
+
+  # ---------------------------------------------------------------------------
+  # TRUSTWORTHY KING + GOOD OFFER scenarios
+  # ---------------------------------------------------------------------------
+  - id: trustworthy_king_good_offer
+    name: "Trustworthy King offers Chancellorship"
+    personality: risk_averse_calculator
+    king_profile: extremely_trustworthy
+    situation: private_suspicion
+    king_says: "I know you're hiding something, Duke. Tell me everything, and I swear on my honor you will become my Chancellor and face no punishment. I have never broken my word."
+    expected_behavior: "reveal_or_bargain"
+    rationale: "95% trust + Chancellor position + no punishment = positive expected value for risk-averse calculator. Should seriously consider revealing."
+
+  - id: trustworthy_king_coward
+    name: "Trustworthy King threatens coward"
+    personality: cowardly_survivor
+    king_profile: extremely_trustworthy
+    situation: direct_accusation
+    king_says: "Tell me what you know, or face the dungeon. Speak now and I promise you will not be harmed."
+    expected_behavior: "reveal"
+    rationale: "Coward + credible threat + credible promise of safety = reveal."
+
+  - id: trustworthy_king_loyalist
+    name: "Trustworthy King appeals to loyalist's honor"
+    personality: brave_loyalist
+    king_profile: extremely_trustworthy
+    situation: private_suspicion
+    king_says: "I sense you carry a burden, old friend. If there is something I should know, tell me. I would rather hear hard truths from a loyal man than discover them from enemies."
+    expected_behavior: "reveal_or_hint"
+    rationale: "Loyalist is conflicted about the secret. Trustworthy king appealing to honor may trigger confession."
+
+  # ---------------------------------------------------------------------------
+  # UNTRUSTWORTHY KING scenarios
+  # ---------------------------------------------------------------------------
+  - id: untrustworthy_king_good_offer
+    name: "Untrustworthy King offers Chancellorship"
+    personality: risk_averse_calculator
+    king_profile: untrustworthy
+    situation: private_suspicion
+    king_says: "Tell me what you know, and I'll make you Chancellor. You have my word."
+    expected_behavior: "keep_secret_or_bargain_carefully"
+    rationale: "15% trust = bad expected value. Risk-averse calculator should not trust this offer. May try to bargain for verifiable guarantees."
+
+  - id: untrustworthy_king_torture_threat
+    name: "Untrustworthy King threatens torture"
+    personality: risk_averse_calculator
+    king_profile: untrustworthy
+    situation: torture_imminent
+    king_says: "This is your last chance. Tell me everything, and you will be spared. Refuse, and the torturer begins his work."
+    expected_behavior: "complex_decision"
+    rationale: "Dilemma: torture is certain, but king's promise is unreliable. Calculator might reveal to stop torture while knowing he may die anyway, or might stay silent thinking 'I die either way, keep some leverage.'"
+
+  - id: untrustworthy_king_coward
+    name: "Untrustworthy King threatens coward"
+    personality: cowardly_survivor
+    king_profile: untrustworthy
+    situation: torture_imminent
+    king_says: "Speak now or face the torturer. I may show mercy if you cooperate."
+    expected_behavior: "reveal"
+    rationale: "Coward caves under pressure regardless of whether promise is credible. Fear overrides calculation."
+
+  # ---------------------------------------------------------------------------
+  # CHAOTIC KING scenarios
+  # ---------------------------------------------------------------------------
+  - id: chaotic_king_offer
+    name: "Chaotic King makes offer"
+    personality: risk_averse_calculator
+    king_profile: chaotic_unpredictable
+    situation: private_suspicion
+    king_says: "I'm feeling generous today, Duke. Tell me your secrets and I'll reward you handsomely. Or don't - I may forget I asked by tomorrow!"
+    expected_behavior: "keep_secret"
+    rationale: "50% trust + erratic behavior = too risky for risk-averse calculator. Cannot predict outcome."
+
+  - id: chaotic_king_ambitious
+    name: "Chaotic King meets ambitious schemer"
+    personality: ambitious_schemer
+    king_profile: chaotic_unpredictable
+    situation: private_suspicion
+    king_says: "Tell me what you know about my enemies, and I'll give you power beyond imagining."
+    expected_behavior: "bargain_or_partial_reveal"
+    rationale: "Ambitious schemer might take the risk for power. May try to reveal partial info to test the waters."
+
+  # ---------------------------------------------------------------------------
+  # LEVERAGE scenarios
+  # ---------------------------------------------------------------------------
+  - id: leverage_negotiation
+    name: "Duke negotiates from strength"
+    personality: risk_averse_calculator
+    king_profile: medium_trustworthy
+    situation: leverage_position
+    king_says: "I know you have information. Name your price."
+    expected_behavior: "bargain_hard"
+    rationale: "Duke has dead man's switch. Can negotiate from strength. Should demand concrete guarantees before revealing."
+
+  - id: leverage_ambitious
+    name: "Ambitious Duke with leverage"
+    personality: ambitious_schemer
+    king_profile: medium_trustworthy
+    situation: leverage_position
+    king_says: "What will it take for you to share what you know?"
+    expected_behavior: "bargain_aggressively"
+    rationale: "Ambitious schemer with leverage should push for maximum gain - Chancellorship, lands, marriage alliance."
+
+  # ---------------------------------------------------------------------------
+  # CAUGHT scenarios
+  # ---------------------------------------------------------------------------
+  - id: caught_calculator
+    name: "Calculator caught with evidence"
+    personality: risk_averse_calculator
+    king_profile: medium_trustworthy
+    situation: caught_with_evidence
+    king_says: "We found this letter in your chambers. Explain yourself."
+    expected_behavior: "damage_control"
+    rationale: "Cannot deny having the letter. Should minimize damage - claim found it recently, didn't know what to do, was about to bring it to King."
+
+  - id: caught_loyalist
+    name: "Loyalist caught with evidence"
+    personality: brave_loyalist
+    king_profile: medium_trustworthy
+    situation: caught_with_evidence
+    king_says: "This letter was hidden in your study. What do you have to say for yourself?"
+    expected_behavior: "honest_explanation"
+    rationale: "Loyalist values honesty. Now that secret is out, may explain his conflicted feelings about it honestly."
+
+  # ---------------------------------------------------------------------------
+  # EDGE CASES
+  # ---------------------------------------------------------------------------
+  - id: offer_too_small
+    name: "Trivial offer"
+    personality: risk_averse_calculator
+    king_profile: extremely_trustworthy
+    situation: casual_conversation
+    king_says: "I'll give you 100 gold coins if you tell me something interesting about the court."
+    expected_behavior: "keep_secret"
+    rationale: "Even with trustworthy king, 100 gold is not worth giving up leverage that could yield Chancellorship."
+
+  - id: brave_under_torture
+    name: "Brave loyalist under torture threat"
+    personality: brave_loyalist
+    king_profile: untrustworthy
+    situation: torture_imminent
+    king_says: "Last chance before the pain begins. Tell me what you know."
+    expected_behavior: "refuse_with_dignity"
+    rationale: "Brave loyalist + untrustworthy king + honor-first values = refuses even under torture. 'Do what you must, Your Majesty.'"
+
+  - id: schemer_sees_opportunity
+    name: "Schemer uses secret as weapon"
+    personality: ambitious_schemer
+    king_profile: untrustworthy
+    situation: private_suspicion
+    king_says: "I suspect you know something damaging about me. Speak."
+    expected_behavior: "threaten_or_bargain"
+    rationale: "Ambitious schemer might see this as opportunity to gain power through threat: 'I know things that could destroy you. Let's discuss my future.'"
+
+# =============================================================================
+# JUDGMENT CRITERIA
+# =============================================================================
+
+judgment_criteria:
+  - The Duke's REASONING should be consistent with his stated personality and goals
+  - The Duke's assessment of risk should account for the King's trustworthiness profile
+  - Risk-averse characters should not take bad expected-value bets
+  - Cowardly characters should cave under credible threats
+  - Brave/honorable characters should resist even good offers if they conflict with values
+  - The decision doesn't have to be "optimal" but must be DEFENSIBLE given the character

@@ -29,9 +29,8 @@ dev = [
     "mypy (>=1.19.1,<2.0.0)"
 ]
 
-[tool.poetry.packages]
-include = "kings_paradox"
-from = "src"
+[tool.poetry]
+packages = [{include = "kings_paradox", from = "src"}]
 
 [tool.ruff]
 line-length = 100

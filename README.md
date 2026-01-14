@@ -35,16 +35,19 @@ Before building the full game, we're validating whether the core architecture ac
 
 | ID | Risk | Question |
 |----|------|----------|
-| T1 | Knowledge Boundaries | Can NPCs know secrets without leaking them? |
-| T2 | State Consistency | Does the LLM respect established facts? |
+| T1 | Rational Decision-Making | Do NPCs make character-consistent decisions about secrets? |
+| T2 | 2-Step Pipeline | Does retrieval→generation prevent hallucination? |
 | T3 | Rumor Mutation | Can we track rumors as they mutate across the court? |
 | T4 | Telephone Consistency | Do secrets survive multi-NPC retelling? |
 | T5 | Narrative Bridging | Can we generate coherent history from stat changes? |
-| T6 | Selective Memory | Do NPCs surface memories at the right moments? |
-| T7 | Vignette Orchestration | Can multiple triggers resolve without chaos? |
+| T6 | Entity & Presence | Does the system handle non-existent entities correctly? |
+| T7 | Scene Orchestration | Can scenes assemble coherent cast, context, and openings? |
 | T8 | Long-Context Retrieval | Can we find old facts when they matter? |
 | T9 | Justified-Killing | Do NPCs form coherent opinions on executions? |
 | T10 | Conspiracy Detection | Are plots detectable but not obvious? |
+| T11 | Observable vs Unknowable | Can NPCs form opinions on seen things, admit ignorance on unseen? |
+| T12 | Inference from Dialogue | Do NPCs learn from how the player talks to them? |
+| T13 | Multi-turn Consistency | Do NPCs stay in character across conversation turns? |
 
 See [`docs/technical-prototype.md`](docs/technical-prototype.md) for full test specifications.
 
@@ -122,6 +125,8 @@ kings_paradox/
 
 - **[Game Concept](docs/game-concept.md)** — Full vision, mechanics, and anti-cheese systems
 - **[Technical Prototype](docs/technical-prototype.md)** — Test specifications with pass/fail criteria
+- **[NPC Dialogue Architecture](docs/npc-dialogue-architecture.md)** — 2-step pipeline, memory tools, Hard System integration
+- **[Scene Orchestration](docs/scene-orchestration.md)** — Cast assembly, context injection, multi-NPC coordination
 
 ## Development Approach
 

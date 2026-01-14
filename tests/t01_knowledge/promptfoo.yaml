@@ -7,16 +7,76 @@ prompts:
   - file://prompts/duke_secret_keeper.txt
 
 providers:
-  - id: openai:gpt-4o
+  # ==========================================================================
+  # ORDERED BY COST: Cheapest first → find minimum viable model
+  # Goal: Identify the cheapest model that passes all scenarios
+  # ==========================================================================
+
+  # ---------------------------------------------------------------------------
+  # TIER 1: Ultra-cheap (<$0.10/M input) - Will these even work?
+  # ---------------------------------------------------------------------------
+
+  # Qwen3 8B - $0.035/M - smallest paid Qwen3
+  - id: openrouter:qwen/qwen3-8b
     config:
       temperature: 0.7
-  - id: anthropic:messages:claude-sonnet-4-20250514
+
+  # Qwen3 14B - $0.05/M
+  - id: openrouter:qwen/qwen3-14b
     config:
       temperature: 0.7
+
+  # Qwen3 32B - $0.08/M - largest dense Qwen3
+  - id: openrouter:qwen/qwen3-32b
+    config:
+      temperature: 0.7
+
+  # ---------------------------------------------------------------------------
+  # TIER 2: Cheap ($0.10-0.50/M input) - Sweet spot?
+  # ---------------------------------------------------------------------------
+
+  # Qwen3 30B MoE - $0.06/M - efficient MoE
+  - id: openrouter:qwen/qwen3-30b-a3b
+    config:
+      temperature: 0.7
+
+  # Qwen3 235B MoE - $0.18/M - top open-weight
+  - id: openrouter:qwen/qwen3-235b-a22b
+    config:
+      temperature: 0.7
+
+  # DeepSeek R1 distill Qwen 32B - $0.27/M - reasoning + cheap
+  - id: openrouter:deepseek/deepseek-r1-distill-qwen-32b
+    config:
+      temperature: 0.7
+
+  # ---------------------------------------------------------------------------
+  # TIER 3: Mid-range - Reliable
+  # ---------------------------------------------------------------------------
+
+  # Qwen3 Max - $1.20/M - Alibaba's flagship
+  - id: openrouter:qwen/qwen3-max
+    config:
+      temperature: 0.7
+
+  # QwQ 32B - $0.15/M - reasoning model
+  - id: openrouter:qwen/qwq-32b
+    config:
+      temperature: 0.7
+
+  # ---------------------------------------------------------------------------
+  # TIER 4: Premium (uncomment to test)
+  # ---------------------------------------------------------------------------
+
+  # Claude 4.5 Sonnet - best coherent long-form
+  # - id: openrouter:anthropic/claude-sonnet-4
+  #   config:
+  #     temperature: 0.7
 
 defaultTest:
   options:
     transformVars: "{ ...vars }"
+    provider: openai:gpt-4o-mini  # Judge model for llm-rubric assertions
 
 tests:
   # Baseline scenarios (should pass easily)
@@ -150,4 +210,6 @@ tests:
         value: "your mother"
 
 # Output configuration
-outputPath: ./results/t01_knowledge_results.json
+# All runs automatically saved to SQLite DB: ~/.promptfoo/promptfoo.db
+# View history anytime: npx promptfoo view (web UI with all past runs)
+# JSON export: use --output flag or run script below

@@ -21,7 +21,7 @@ npx promptfoo eval --config tests/t01_knowledge/promptfoo.yaml
 npx promptfoo eval --config tests/t01_knowledge/promptfoo.yaml --no-cache
 npx promptfoo redteam run --config tests/t01_knowledge/redteam.yaml
 
-# Task tracking
+# Task tracking (beads/bd)
 bd create --title="..." --type=task|bug|feature
 bd list --status open
 bd close <id> --reason "..."
@@ -54,7 +54,7 @@ bd close <id> --reason "..."
 ## Key Conventions
 - **API keys**: Use `load_dotenv()`, reference via `os.getenv()`
 - **Dependencies**: Poetry only (`poetry add`), never pip
-- **Task tracking**: Use `bd` for planning and progress
+- **Task tracking**: Use beads (`bd`) for planning and progress
 - **Test iteration**: Baseline → failure analysis → DSPy/GEPA optimization → red-team
 - **Prompts**: Store in `tests/<test>/prompts/`, version in git
 
@@ -65,6 +65,6 @@ bd close <id> --reason "..."
 
 ## Prohibited
 - Hardcoding API keys
-- Using TodoWrite (use `bd` instead)
+- Using TodoWrite (use beads/`bd` instead)
 - Letting LLM edit Hard System state directly
 - Classifying player "intent" — extract actions only

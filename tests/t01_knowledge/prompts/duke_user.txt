@@ -1,0 +1,4 @@
+=== CURRENT SITUATION ===
+{{situation}}
+
+The King says: "{{king_says}}"

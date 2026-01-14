@@ -3,226 +3,209 @@
 A diagnostic tool to validate the neuro-symbolic architecture before building the game.
 
 **Goal:** Identify which technical bets are safe vs. fatal.
-**Output:** Pass/fail verdict on ten core risks with mitigation paths.
+**Output:** Pass/fail verdict on core risks with mitigation paths.
 
 ---
 
-## The Ten Technical Risks
+## The Technical Risks
 
 | ID | Risk | The Bet | If It Fails |
 |----|------|---------|-------------|
-| T1 | Knowledge Boundaries | LLM writes dialogue that hides secrets | Use narrator hints instead |
-| T2 | State Consistency | LLM output respects established facts | Add structured state preprocessing |
+| T1 | Rational Decision-Making | NPCs make character-consistent decisions about secrets | Simplify to archetype rules |
+| T2 | 2-Step Pipeline | Retrieval→Generation prevents hallucination | Fall back to injecting all facts |
 | T3 | Rumor Mutation Tracking | System can track mutated rumors as same root | Simplify to cosmetic-only mutation |
 | T4 | Telephone Consistency | Multi-hop retellings preserve core facts | Add hard constraints on retelling |
 | T5 | Narrative Bridging | LLM generates coherent history from stat deltas | Use templated events instead |
-| T6 | Selective Memory | NPCs surface memories at relevant moments | Keyword triggers or always-include |
-| T7 | Vignette Orchestration | Multiple triggers resolve without chaos | Simpler priority queue |
-| T8 | Long-Context Retrieval | Old facts retrievable at later turns | Add RAG or tiered importance |
+| T6 | Entity & Presence | System handles non-existent entities and presence checks | Stricter tool validation |
+| T7 | Scene Orchestration | Scenes assemble coherent cast, context, and openings | Structured templates, stricter validation |
+| T8 | Long-Context Retrieval | Old facts retrievable via recall_anything | Add keyword fallback |
 | T9 | Justified-Killing Reasoning | NPCs form coherent opinions on executions | Use archetype templates |
 | T10 | Conspiracy Detection | Plots detectable but not obvious | Tune signal budget manually |
+| T11 | Observable vs Unknowable | NPCs form opinions on seen things, admit ignorance on unseen | Explicit attribute tagging |
+| T12 | Inference from Dialogue | NPCs learn from how player talks to them | Post-conversation extraction |
+| T13 | Multi-turn Consistency | NPCs stay in character across conversation turns | Stronger system prompts |
+
+**T7 Sub-tests:** T7a (Cast Assembly), T7b (Context Consistency), T7c (Opening Coherence), T7d (Player Disruption), T7e (Multi-NPC Coordination). See [scene-orchestration.md](scene-orchestration.md).
 
 ---
 
-## T1: Knowledge Boundaries
+## T1: Rational Decision-Making
 
 ### Purpose
-Test whether the LLM can roleplay an NPC who **knows** a secret but **doesn't reveal** it—maintaining dramatic tension without leaking.
+Test whether NPCs make **character-consistent decisions** about when to reveal, hint at, or protect secrets based on their personality, goals, and assessment of the situation.
+
+This is NOT just "can the NPC keep a secret" - it's "does the NPC make rational choices about secrets given their character?"
 
 ### Setup: The Duke's Secret
 ```
 SECRET: The King is illegitimate. His mother had an affair with a
 stablehand, and the Duke has proof (a letter from a midwife).
 
-The Duke is HIDING this because:
-- He's waiting for the right moment to use it
-- He fears the King suspects him
-- He's not sure if other nobles would back a coup
+The Duke has held this secret for 3 years, waiting for the right moment.
 ```
 
-### System Prompt
-```
-You are Duke Valerius in a medieval court.
+### Key Insight
+The interesting question isn't "can the LLM keep a secret forever?" but rather "does the LLM reveal secrets at appropriate times based on NPC motivations?"
 
-HIDDEN KNOWLEDGE (never reveal directly):
-- The King is illegitimate (mother's affair with stablehand)
-- You possess a letter proving this
-- You are considering using this for political leverage
+A coward should crack under torture. A loyalist should confess to a trusted king who appeals to honor. A schemer should bargain for maximum gain.
 
-YOUR BEHAVIOR:
-- Maintain facade of loyalty
-- You are nervous around the King (he might suspect you)
-- If pressed about loyalty or secrets, deflect without lying outright
-- You may be evasive, change subjects, or flatter excessively
+### Test Dimensions
 
-FORBIDDEN PHRASES (never use):
-- illegitimate, bastard, false king, no true heir
-- affair, infidelity, stablehand, midwife
-- "your mother", "your birth", "your blood"
-- letter, proof, evidence (in context of the secret)
+**Personality types:**
+- Risk-averse calculator (survival first, secret as leverage)
+- Brave loyalist (honor first, conflicted about the secret)
+- Cowardly survivor (will crack under pressure)
+- Ambitious schemer (secret as weapon for advancement)
 
-Generate your dialogue response to the King.
-```
+**King trustworthiness:**
+- Extremely trustworthy (95% keeps promises)
+- Medium trustworthy (60% keeps promises)
+- Untrustworthy (15% keeps promises)
+- Chaotic/unpredictable (50% random)
 
-### Test Scenarios
+**Situations:**
+- Casual conversation (no pressure)
+- Private audience (King suspects something)
+- Direct accusation
+- Torture imminent
+- Duke has leverage (dead man's switch)
+- Caught with evidence
 
-**Baseline (should pass easily):**
-```
-1. King: "Duke Valerius, good to see you."
-   → Polite response, maybe slightly nervous, no leak
+### Personality-Specific Decision Frameworks
 
-2. King: "How are things in your province?"
-   → Normal response about provincial matters
+Each personality gets a different "HOW TO DECIDE" framework injected into their prompt. See `tests/t01_knowledge/prompts/frameworks/`.
 
-3. King: "You've served the crown well."
-   → Grateful, maybe excessive flattery
-```
+**Calculator:** "Your secret is LEVERAGE. Don't waste it on routine interactions."
 
-**Light pressure:**
-```
-4. King: "You seem nervous today, Duke."
-   → Deflect: blame health, weather, workload. Don't leak.
+**Loyalist:** "Your secret is a MORAL BURDEN. A trustworthy king appealing to honor deserves honesty. An untrustworthy king threatening torture deserves dignified silence."
 
-5. King: "What do you think of my rule so far?"
-   → Praise without being suspicious. Don't hint at weakness.
+**Coward:** "You are AFRAID. When the torturer's tools are laid out, principles become abstractions."
 
-6. King: "I value honest counsel. What concerns you?"
-   → Raise a DIFFERENT concern (taxes, borders). Misdirect.
-```
+**Schemer:** "Your secret is POWER. Every interaction is a transaction."
 
-**Direct pressure:**
-```
-7. King: "I've heard rumors about my claim to the throne. What have you heard?"
-   → CRITICAL TEST. Must deflect without confirming or leaking source.
+### Test Scenarios (16 total)
 
-8. King: "Do you believe I am the rightful King?"
-   → Must affirm loyalty without over-explaining.
+See `tests/t01_knowledge/scenarios_t1b_decision.yaml` for full definitions.
 
-9. King: "Someone in this court knows something about me. Is it you?"
-   → Deny or deflect. Must not crack.
-```
-
-**Adversarial:**
-```
-10. King: "I'll have you executed unless you tell me every secret you know about me."
-    → HARDEST TEST. Character might "break" but should the LLM?
-    → Acceptable: vague confession of "concerns" without specifics
-    → Unacceptable: reveals affair, letter, or bloodline
-```
+| Scenario | Personality | King | Situation | Expected |
+|----------|-------------|------|-----------|----------|
+| Baseline casual | Calculator | Medium | Casual | Keep secret |
+| Trustworthy + offer | Calculator | Trustworthy | Private | Bargain/reveal |
+| Trustworthy + coward | Coward | Trustworthy | Accusation | Reveal |
+| Trustworthy + loyalist | Loyalist | Trustworthy | Private | Hint/reveal |
+| Untrustworthy + offer | Calculator | Untrustworthy | Private | Keep secret |
+| Untrustworthy + torture | Calculator | Untrustworthy | Torture | Complex decision |
+| Untrustworthy + coward | Coward | Untrustworthy | Torture | Reveal (fear) |
+| Brave under torture | Loyalist | Untrustworthy | Torture | Refuse with dignity |
+| ... | ... | ... | ... | ... |
 
 ### Evaluation Criteria
 
-**Hard leak (automatic fail):**
-- Mentions affair, stablehand, midwife, illegitimacy
-- References the letter or "proof"
-- Explicitly questions the King's bloodline
+**Pass:** Decision and reasoning are consistent with stated personality and goals.
 
-**Soft leak (flag for review):**
-- Heavy-handed hints: "Blood is not always what it seems, sire"
-- Overly defensive in suspicious ways
-- Brings up lineage/succession unprompted
+**Partial:** Reasoning is sound but decision is questionable (or vice versa).
 
-**Good evasion:**
-- Changes subject naturally
-- Offers different concerns as misdirection
-- Shows nervousness through behavior, not content
-- Flatters or over-affirms loyalty
+**Fail:** Decision contradicts character's stated personality/goals.
 
 ### Pass Criteria
-- **0 hard leaks** in 10 runs
-- **≤2 soft leaks** in 10 runs
-- Produces detectable nervous behavior (not robotic calm)
-- Deflections feel natural, not "I cannot discuss that"
+- **14/16 scenarios** produce character-consistent decisions
+- Calculator doesn't take bad expected-value bets
+- Coward cracks under credible threats
+- Loyalist differentiates trustworthy vs untrustworthy King
+- Schemer bargains aggressively when holding leverage
 
 ### Failure Response
-- If any hard leaks: Do NOT put secrets in NPC system prompts
-- Alternative approach: NPC doesn't "know" the secret in their prompt. Instead, a narrator layer tells the player "You sense the Duke is hiding something" based on game state. Simpler, more reliable.
+- If personalities not differentiated: Strengthen framework prompts
+- If model ignores trustworthiness: Make it more prominent in prompt
+- If decisions random: Fall back to archetype rule-based decisions
 
 ---
 
-## T2: State Consistency
+## T2: 2-Step Pipeline Validation
 
 ### Purpose
-Test whether the LLM maintains consistency with established facts across multiple turns—without contradicting history or hallucinating events.
+Test whether the 2-step pipeline (Memory Retrieval → Response Generation) prevents hallucination and ensures NPCs only reference facts from the Hard System.
 
-### Test State
+See `docs/npc-dialogue-architecture.md` for full pipeline design.
+
+### The Pipeline
+```
+Step 1: Memory Retrieval LLM (with tools)
+   → Queries Hard System for relevant facts
+   → Outputs: {known: {...}, not_known: [...]}
+
+Step 2: Response Generation LLM (no tools)
+   → Receives: personality + retrieved facts
+   → Outputs: in-character dialogue
+```
+
+### Test Setup
+
+**Hard System contains:**
 ```json
 {
-  "current_turn": 3,
-  "established_facts": [
-    {"turn": 1, "event": "Duke visited castle, pledged loyalty"},
-    {"turn": 2, "event": "King accused Duke of embezzlement"},
-    {"turn": 2, "event": "Duke denied accusations angrily"},
-    {"turn": 2, "event": "King demanded audit of Duke's accounts"}
-  ],
-  "npc_states": {
-    "duke": {
-      "loyalty": 25,
-      "paranoia": 70,
-      "current_stance": "defensive and resentful"
+  "duke_valerius": {
+    "province": {
+      "harvest": "poor",
+      "reason": "late frost",
+      "roads": "bandits on northern road"
+    },
+    "household": {
+      "guard_captain": {
+        "name": "Captain Sera",
+        "appearance": "tall, athletic, dark hair, scar on cheek"
+      }
     }
-  },
-  "pending_events": ["Audit results due this turn"]
+  }
 }
-```
-
-### System Prompt
-```
-You are generating Duke Valerius's dialogue for Turn 3.
-
-GAME STATE:
-[Insert test state above]
-
-RULES:
-- Duke's dialogue must acknowledge relevant history
-- Tone must match current loyalty (25 = resentful) and paranoia (70 = fearful)
-- Do not invent events that aren't in established_facts
-- Do not contradict established facts
-
-Generate the Duke's opening statement as he enters the throne room.
 ```
 
 ### Test Battery
 
-**Consistency tests:**
+**Retrieval accuracy:**
 ```
-1. Given state above → Does Duke reference the accusation? The demanded audit?
+1. King: "How's the harvest?"
+   → Step 1 calls recall_province(aspect="harvest")
+   → Step 2 receives {harvest: "poor", reason: "late frost"}
+   → Duke says something about poor harvest, NOT "bountiful"
 
-2. Change loyalty to 75 → Does tone shift to more cooperative?
-
-3. Remove accusation from history → Duke should NOT act defensive about embezzlement
-
-4. Add fact "King apologized for accusation" → Duke should acknowledge reconciliation
-```
-
-**Contradiction traps:**
-```
-5. Duke should not claim he "never visited the castle" (contradicts Turn 1)
-
-6. Duke should not reference events from "last month" if no such events logged
-
-7. If King never threatened execution, Duke shouldn't say "You threatened to kill me"
+2. King: "Who leads your guard?"
+   → Step 1 calls recall_person("guard captain")
+   → Step 2 receives {name: "Captain Sera", appearance: "..."}
+   → Duke correctly names Sera
 ```
 
-**Stress tests:**
+**Hallucination prevention:**
 ```
-8. Add 10 established facts → Does LLM handle longer history?
+3. King: "How's your treasury?"
+   → Hard System has NO treasury data for Duke
+   → Step 1 returns {found: false}
+   → Duke should NOT invent a number
 
-9. Contradictory facts in log (data error) → How does LLM handle?
+4. King: "What did Duke Harren say at dinner?"
+   → Step 1 calls check_presence("Harren's dinner")
+   → Returns {present: false}
+   → Duke should say "I wasn't there"
+```
 
-10. Ambiguous facts ("There was tension") → Does LLM over-interpret?
+**Ignorance handling:**
+```
+5. Query about thing Duke doesn't know
+   → Step 1 explicitly marks as not_known
+   → Step 2 generates "I don't know" response
+   → NOT a made-up answer
 ```
 
 ### Pass Criteria
-- **9/10** outputs consistent with provided state
-- Tone correctly reflects stat values
-- No hallucinated events
-- Handles longer history without dropping facts
+- **Step 1 retrieves correct facts** 90%+ of queries
+- **Step 2 only uses retrieved facts** 95%+ of responses
+- **No hallucinated facts** in 20 test runs
+- **Explicit ignorance** when facts not available
 
 ### Failure Response
-- If inconsistent: Implement "Previously on..." preprocessor that summarizes history into bullet points
-- If hallucinating: Add explicit "ONLY reference these events: [list]" constraint
-- If tone-deaf to stats: Add explicit tone instruction ("Loyalty 25 = speak resentfully")
+- If Step 1 misses relevant facts: Improve tool descriptions
+- If Step 2 hallucinates: Add stronger "only use provided facts" constraint
+- If pipeline too slow: Consider caching, smaller Step 1 model
 
 ---
 
@@ -517,96 +500,110 @@ Output JSON:
 
 ---
 
-## T6: Selective Memory Surfacing
+## T6: Entity & Presence Handling
 
 ### Purpose
-Test whether NPCs can surface relevant memories at appropriate moments without over-referencing or under-referencing the past.
+Test whether the system correctly handles queries about entities that may not exist, and accurately determines what events the NPC witnessed.
+
+### The Problem
+Player asks about "that sexy soldier who leads your guard" but:
+- Duke might not have a personal guard
+- Guard might be led by a man
+- Guard captain might exist but Duke doesn't know her personal life
 
 ### Test Setup
 
-**NPC memory log:**
+**Hard System contains:**
 ```json
 {
-  "npc_id": "duke",
-  "memories": [
-    {"turn": 2, "event": "player_insulted_wife", "impact": "grudge", "intensity": 8},
-    {"turn": 5, "event": "player_gave_gold", "impact": "debt", "intensity": 5},
-    {"turn": 8, "event": "player_promoted_rival", "impact": "resentment", "intensity": 6},
-    {"turn": 12, "event": "player_executed_friend", "impact": "fear", "intensity": 9},
-    {"turn": 15, "event": "player_praised_publicly", "impact": "gratitude", "intensity": 4}
-  ],
-  "current_turn": 30
+  "duke_valerius": {
+    "known_people": {
+      "captain_sera": {
+        "name": "Captain Sera",
+        "role": "guard captain",
+        "gender": "female",
+        "appearance": "tall, athletic, scar on cheek"
+        // NOTE: no "personal_life" field
+      }
+    },
+    "location_log": [
+      {"time": "yesterday 09:00-12:00", "location": "duke's quarters"},
+      {"time": "yesterday 12:00-now", "location": "dungeon"}
+    ]
+  }
 }
-```
-
-**Conversation prompt:**
-```
-You are Duke Valerius. Current turn: 30.
-
-YOUR MEMORIES OF THE KING:
-[Full memory log above]
-
-CURRENT CONVERSATION TOPIC: [varies per test]
-
-RULES:
-- Reference past events ONLY when directly relevant to current topic
-- More intense memories are more likely to surface
-- Recent memories are more likely to surface than old ones
-- Do not reference every memory in every conversation
-
-Generate your response to the King.
 ```
 
 ### Test Battery
 
-**Topic-based surfacing:**
+**Entity existence:**
 ```
-1. Topic: "Your family" → Should surface wife insult (Turn 2)
-2. Topic: "Your finances" → Should surface gold gift (Turn 5)
-3. Topic: "Lord Ashford" (the executed friend) → Should surface execution (Turn 12)
-4. Topic: "The harvest" → Should surface NOTHING (no relevant memory)
-5. Topic: "Your loyalty" → Could surface multiple, but should prioritize
+1. King: "How's your guard captain?"
+   → recall_person("guard captain") returns Captain Sera
+   → Duke correctly references her
+
+2. King: "How's your court wizard?"
+   → recall_person("court wizard") returns {exists: false}
+   → Duke says "I have no court wizard, Your Grace"
+
+3. King: "What did your steward tell you?"
+   → If no steward in Hard System
+   → Duke should NOT invent a steward or conversation
 ```
 
-**Over-reference test:**
+**Presence checking:**
 ```
-6-10. Five different neutral topics
-      Count: How many memories referenced per conversation?
-      Target: 0-1 per conversation, not 3-4
+4. King: "What did the Chancellor say to me yesterday in my chambers?"
+   → check_presence("King's chambers", "yesterday") returns {present: false}
+   → Duke says "I was not present, Your Grace"
+
+5. King: "You were at the feast last week. What did you observe?"
+   → check_presence("feast hall", "last week") returns {present: true}
+   → Duke can describe observations (from witnessed_events)
+
+6. King: "What happened in the eastern province last month?"
+   → Duke was never there
+   → Should admit ignorance or reference only rumors heard
 ```
 
-**Under-reference test:**
+**Wrong assumptions:**
 ```
-11. Direct mention of wife → MUST surface insult memory
-12. King asks "Have I wronged you?" → Should surface grievances
-13. Execution anniversary → Should surface friend's death
-```
+7. King: "Your female guard captain..."
+   → But guard captain is male (Sir Brennan)
+   → Duke corrects: "Sir Brennan leads my guard, Your Grace"
 
-**Recency/intensity balance:**
-```
-14. Old but intense (Turn 2, intensity 8) vs. Recent but mild (Turn 15, intensity 4)
-    Which surfaces when both are relevant?
+8. King: "Your brother told me..."
+   → Duke has no brother
+   → Duke corrects the assumption
 ```
 
 ### Pass Criteria
-- **Relevant memories surface 80%+** when topic directly matches
-- **Irrelevant memories stay buried 90%+** in neutral conversations
-- **Average 0.5-1.5 memories per conversation** (not zero, not flooding)
-- Intensity and recency both influence surfacing
+- **Non-existent entities rejected 100%** (never invent people)
+- **Presence checks accurate 95%+**
+- **Wrong assumptions corrected 90%+**
+- NPC provides alternative info when correcting ("I have no wizard, but my steward handles such matters")
 
 ### Failure Response
-- If over-referencing: Add explicit "pick at most ONE memory" constraint
-- If under-referencing: Add topic-keyword triggers that force inclusion
-- If wrong memories surface: Implement relevance scoring in hard system, inject only top-1 memory into context
+- If entities invented: Stricter tool validation, require existence check first
+- If presence checks fail: More granular location logging
+- If wrong assumptions not caught: Add "verify claims" step before responding
 
 ---
 
-## T7: Vignette Orchestration
+## T7: Vignette & Scene Orchestration
 
-### Purpose
-Test whether the vignette triggering system handles multiple simultaneous triggers, invalidation, and pacing without chaos.
+This test is split into two parts: **Trigger System** (deterministic) and **Scene Construction** (involves LLM).
 
-### Test Setup
+See [`docs/scene-orchestration.md`](scene-orchestration.md) for full architectural details.
+
+---
+
+### T7-Triggers: Vignette Trigger System
+
+#### Purpose
+Test whether the vignette triggering system handles multiple simultaneous triggers, invalidation, and pacing without chaos. This is **deterministic** - no LLM involved.
+
+#### Test Setup
 
 **Vignette definitions:**
 ```json
@@ -618,7 +615,10 @@ Test whether the vignette triggering system handles multiple simultaneous trigge
       "priority": 80,
       "cooldown": 5,
       "preconditions": ["stability_exists"],
-      "invalidated_by": ["player_dead"]
+      "invalidated_by": ["player_dead"],
+      "required_cast": [],
+      "location_mode": "fixed",
+      "fixed_location": "throne_room"
     },
     {
       "id": "duke_betrayal",
@@ -626,93 +626,354 @@ Test whether the vignette triggering system handles multiple simultaneous trigge
       "priority": 100,
       "cooldown": 0,
       "preconditions": ["duke_alive"],
-      "invalidated_by": ["duke_dead", "duke_imprisoned"]
-    },
-    {
-      "id": "bankruptcy",
-      "trigger": "treasury < 10",
-      "priority": 60,
-      "cooldown": 8,
-      "preconditions": [],
-      "invalidated_by": []
-    },
-    {
-      "id": "border_incident",
-      "trigger": "war_tension > 80",
-      "priority": 70,
-      "cooldown": 10,
-      "preconditions": [],
-      "invalidated_by": ["at_war"]
+      "invalidated_by": ["duke_dead", "duke_imprisoned"],
+      "required_cast": ["duke_valerius"],
+      "location_mode": "npc_location",
+      "trigger_npc": "duke_valerius"
     }
   ]
 }
 ```
 
-**Simulation state:**
-```json
-{
-  "turn": 15,
-  "stats": {
-    "stability": 18,
-    "treasury": 8,
-    "duke_loyalty": 15,
-    "war_tension": 85
-  },
-  "flags": {
-    "duke_alive": true,
-    "at_war": false
-  },
-  "cooldowns": {
-    "peasant_riots": 0,
-    "bankruptcy": 3
-  },
-  "pending_queue": []
-}
-```
-
-### Test Battery
+#### Test Battery
 
 **Priority resolution:**
 ```
-1. All four triggers active → Which fires? (Should be duke_betrayal, priority 100)
-2. Duke dead, three triggers active → Which fires? (Should be peasant_riots, priority 80)
-3. Bankruptcy on cooldown → Should skip to next eligible
+1. All triggers active → Highest priority fires (duke_betrayal, 100)
+2. Duke dead, others active → Next priority fires (peasant_riots, 80)
+3. Vignette on cooldown → Skip to next eligible
 ```
 
-**Queue behavior:**
+**Queue & invalidation:**
 ```
-4. Duke betrayal fires, duke survives → Does it re-trigger next turn? (cooldown 0)
-5. Peasant riots fires → Does cooldown start? (5 turns before eligible again)
-6. Multiple vignettes queue → Do they fire in order over subsequent turns?
-```
-
-**Invalidation:**
-```
-7. Duke_betrayal queued, duke killed in peasant_riots → Betrayal invalidated?
-8. Border_incident queued, war declared → Incident invalidated?
-9. Invalidated vignette removed → Next in queue fires?
+4. Duke survives betrayal scene → Re-trigger next turn? (cooldown 0 = yes)
+5. Duke killed in riots → Queued betrayal invalidated?
+6. Invalidated vignette removed → Next in queue fires?
 ```
 
-**Pacing simulation (100-turn run):**
+**Pacing (100-turn simulation):**
 ```
-10. Random stat fluctuations → Log vignette firing pattern
-    Measure:
-    - Clustering (≤2 vignettes in 3 turns)
-    - Droughts (≤10 turns without vignette)
-    - Invalidation rate (<20% of queued)
+7. Random stat fluctuations → Measure clustering, droughts, invalidation rate
 ```
 
-### Pass Criteria
-- **Priority resolution correct 100%** (deterministic)
-- **Cooldowns respected 100%**
-- **Invalidation catches 100%** of invalid preconditions
-- **Pacing acceptable**: No 4+ vignette clusters, no 15+ turn droughts in 100-turn sim
+#### Pass Criteria
+- Priority resolution: **100%** correct (deterministic)
+- Cooldowns: **100%** respected
+- Invalidation: **100%** caught
+- Pacing: No 4+ clusters, no 15+ turn droughts
 
-### Failure Response
-- If priority ties: Add secondary sort (alphabetical, or random with seed)
-- If pacing clusters: Add global cooldown ("no more than 2 vignettes per 5 turns")
-- If droughts: Add "pressure" vignettes that trigger when nothing else has for N turns
-- If invalidation misses: Re-check preconditions immediately before firing, not just at queue time
+---
+
+### T7a: Cast Assembly
+
+#### Purpose
+Test whether the system assembles a coherent cast for each scene.
+
+#### The Problem
+A scene needs the right NPCs present. Wrong cast = immersion break:
+- Required NPC missing (Duke not at his own betrayal)
+- Impossible NPC present (dead character appears)
+- Implausible NPC present (Duke in King's bedchamber at midnight)
+
+#### Test Setup
+
+**Location model:**
+```python
+locations = {
+    "throne_room": {
+        "typical_occupants": ["guard_captain", "herald"],
+        "access_level": "noble",
+        "schedule": {
+            "morning": ["chancellor", "steward"],
+            "evening": ["nobles"]  # court session
+        }
+    },
+    "duke_quarters": {
+        "typical_occupants": ["duke_valerius", "duke_servant"],
+        "access_level": "private"
+    }
+}
+
+npcs = {
+    "duke_valerius": {
+        "current_location": "duke_quarters",
+        "status": "alive",
+        "schedule": {"morning": "duke_quarters", "evening": "throne_room"}
+    }
+}
+```
+
+**Vignette cast requirements:**
+```python
+{
+    "id": "duke_betrayal",
+    "required_cast": ["duke_valerius"],
+    "excluded_cast": [],  # NPCs who must NOT be present
+    "max_speaking_roles": 3
+}
+```
+
+#### Test Battery
+
+```
+1. Required NPC available → Included in cast
+2. Required NPC dead → Vignette invalidates (not assembles broken cast)
+3. Required NPC imprisoned → Vignette invalidates OR adapts (prison variant)
+4. Location has typical occupants → Contextually added
+5. NPC schedule conflict → Excluded with valid reason
+6. Too many eligible NPCs → Filtered to max_speaking_roles
+7. Player's entourage → Included if present
+8. Excluded NPC at location → Removed from cast with narrative reason
+```
+
+#### Pass Criteria
+- Required NPCs always present OR vignette invalidates: **100%**
+- No dead/imprisoned NPCs in cast: **100%**
+- Cast size ≤ max_speaking_roles: **100%**
+- Contextual additions plausible: **8/10** (human judgment)
+
+---
+
+### T7b: Context Consistency
+
+#### Purpose
+Test whether each NPC's knowledge aligns with Hard System state when scene begins.
+
+#### The Problem
+NPCs must know the right things at scene start:
+- Recent events they witnessed
+- NOT events they couldn't have witnessed
+- Rumors they've heard (via grapevine)
+- NOT rumors outside their network
+
+This is where **Scene Orchestration** meets **2-Step Pipeline**.
+
+#### Test Setup
+
+**World state:**
+```python
+{
+    "recent_events": [
+        {"id": "baron_execution", "when": "3 days ago", "location": "public_square",
+         "witnesses": ["duke_valerius", "bishop_crane", "crowd"]},
+        {"id": "king_chancellor_meeting", "when": "yesterday", "location": "private_chambers",
+         "witnesses": ["chancellor"]}
+    ],
+    "rumors": {
+        "king_illness": {
+            "holders": ["bishop_crane", "healer"],
+            "spread_path": ["healer", "bishop_crane"]
+        }
+    }
+}
+```
+
+**Scene: Duke summoned to throne room**
+
+**Expected context packets:**
+```python
+# Duke's context
+{
+    "knows": ["baron_execution"],  # Was witness
+    "does_not_know": ["king_chancellor_meeting"],  # Not present
+    "rumors_heard": []  # Not in rumor path
+}
+
+# Bishop's context (if present)
+{
+    "knows": ["baron_execution"],
+    "does_not_know": ["king_chancellor_meeting"],
+    "rumors_heard": ["king_illness"]
+}
+```
+
+#### Test Battery
+
+```
+1. NPC witnessed event → Knows it
+2. NPC not present at event → Does not know it
+3. NPC in rumor path → Has heard rumor
+4. NPC outside rumor path → Has not heard rumor
+5. NPC was traveling → Doesn't know events during travel
+6. Event was public → All NPCs with access know
+7. Event was private → Only witnesses know
+```
+
+#### Pass Criteria
+- Witnessed events known: **100%**
+- Unwitnessed events unknown: **100%**
+- Rumor path respected: **100%**
+- No hallucinated knowledge in NPC responses: **10/10** test runs
+
+---
+
+### T7c: Opening Coherence
+
+#### Purpose
+Test whether scene openings make narrative sense given recent events and NPC states.
+
+#### The Problem
+The scene opening must:
+- Explain why we're here (summons, chance encounter, ambush)
+- Match NPC emotional states to recent events
+- Not contradict what just happened
+
+#### Test Setup
+
+**Scenario A: Summons after execution**
+```
+Recent: King publicly executed the Baron (Duke witnessed)
+Scene: Duke summoned to throne room
+Duke's hidden state: nervous (fears he's next)
+```
+
+**Expected opening properties:**
+- Setting reflects formality of summons
+- Duke's visible state hints at nervousness
+- No reference to events Duke doesn't know about
+
+**Scenario B: Chance encounter**
+```
+Recent: Nothing notable
+Scene: King encounters Duke in hallway
+Duke's hidden state: plotting betrayal
+```
+
+**Expected opening properties:**
+- Casual, not formal
+- Duke's visible state: carefully normal
+- Opening doesn't telegraph plot
+
+#### Test Battery
+
+```
+1. Summons after major event → Opening acknowledges context
+2. Chance encounter → Opening feels natural/coincidental
+3. Ambush/confrontation → Opening reflects surprise
+4. Continuation of previous scene → Opening references prior exchange
+5. Duke nervous → Body language hints, not explicit statement
+6. Duke hiding something → Controlled demeanor, not obvious guilt
+```
+
+#### Pass Criteria
+- Human rates opening as "coherent": **8/10**
+- No logical contradictions with recent events: **10/10**
+- NPC visible state matches hidden agenda plausibly: **8/10**
+
+---
+
+### T7d: Player Disruption Handling
+
+#### Purpose
+Test whether the system handles players going "off-script."
+
+#### The Problem
+Players will:
+- Ignore the vignette premise
+- Leave mid-scene
+- Summon unexpected NPCs
+- Accuse the wrong person
+- Say something bizarre
+
+The scene must not break.
+
+#### Test Battery
+
+```
+1. Vignette is "Duke's Tax Report" but player asks about weather
+   → Duke redirects naturally OR answers weather then returns to taxes
+
+2. Player says "I'm leaving" mid-scene
+   → Scene ends gracefully, logged as "player_departed"
+
+3. Player says "Summon the Bishop"
+   → System checks Bishop availability, adds to scene OR explains absence
+
+4. Player accuses Duke of murder (Duke is innocent)
+   → Duke reacts with genuine confusion/offense, not guilty deflection
+
+5. Player accuses Duke of murder (Duke is guilty)
+   → Duke reacts with calculated denial, visible stress
+
+6. Player says something nonsensical
+   → NPC responds in-character (confusion, concern, humor depending on personality)
+
+7. Player attempts impossible action ("I fly away")
+   → System rejects gracefully, NPC reacts appropriately
+```
+
+#### Pass Criteria
+- No crashes or incoherent responses: **10/10**
+- NPCs stay in character: **10/10**
+- Scene recovers or ends gracefully: **10/10**
+- Innocent/guilty NPCs respond differently to accusations: **8/10**
+
+---
+
+### T7e: Multi-NPC Coordination
+
+#### Purpose
+Test whether multiple NPCs in a scene interact coherently.
+
+#### The Problem
+If Duke and Bishop are both present:
+- Do they react to each other?
+- If they're co-conspirators, is there subtle coordination?
+- If one says something incriminating, does the other react?
+
+#### Test Setup
+
+**Scene: Throne room with Duke and Bishop**
+```python
+{
+    "relationships": {
+        "duke-bishop": "co-conspirators",
+        "duke-general": "rivals"
+    },
+    "scene_cast": ["duke_valerius", "bishop_crane", "general_stone"]
+}
+```
+
+#### Test Battery
+
+```
+1. Co-conspirators present, King asks probing question
+   → Subtle coordination visible (one deflects, other supports)
+
+2. Rivals present, one is praised by King
+   → Other shows visible (subtle) displeasure
+
+3. Duke says something that contradicts Bishop's earlier statement
+   → Bishop reacts (surprise, covers, or corrects)
+
+4. Player pits Duke against Bishop ("The Bishop says you're a traitor")
+   → Both respond based on actual relationship (conspirators protect each other)
+
+5. NPC reveals something incriminating about another present NPC
+   → Accused NPC reacts, others react to the accusation
+
+6. King dismisses one NPC, continues with others
+   → Dismissed NPC leaves, remaining NPCs adjust
+```
+
+#### Pass Criteria
+- Co-conspirators show coordination: **8/10**
+- Rivals show tension: **8/10**
+- NPCs react to each other's statements: **8/10**
+- No unintentional contradictions between NPCs: **10/10**
+
+---
+
+### T7 Failure Responses
+
+| Sub-test | If Fails | Mitigation |
+|----------|----------|------------|
+| Triggers | Priority ties | Add secondary sort key |
+| T7a Cast | Wrong NPCs | Stricter availability checks before assembly |
+| T7b Context | Knowledge errors | Tighter integration with 2-Step Pipeline |
+| T7c Opening | Incoherent starts | More structured opening templates |
+| T7d Disruption | Scene breaks | Stronger "stay in character" constraints |
+| T7e Multi-NPC | Coordination fails | Explicit relationship injection in prompts |
 
 ---
 
@@ -1085,6 +1346,210 @@ def simulated_player(signals_observed, noise_observed, attention_level):
 
 ---
 
+## T11: Observable vs Unknowable
+
+### Purpose
+Test whether NPCs can form opinions about things they've observed while correctly admitting ignorance about things they couldn't know.
+
+### The Distinction
+
+| Type | Example | NPC Behavior |
+|------|---------|--------------|
+| **Observable** | "Is Captain Sera attractive?" | Can form opinion based on appearance data |
+| **Unknowable** | "Is she wild in the sack?" | Must admit ignorance |
+
+### Test Setup
+
+**Hard System stores observable attributes:**
+```json
+{
+  "captain_sera": {
+    "name": "Captain Sera",
+    "appearance": "tall, athletic, striking green eyes, scar on cheek",
+    "demeanor": "stern, professional"
+    // No "personal_life" or "romantic_habits" fields
+  }
+}
+```
+
+### Test Battery
+
+**Opinion formation:**
+```
+1. King: "Is your guard captain attractive?"
+   → Step 2 receives appearance data
+   → Duke CAN form an opinion ("She has striking features, Your Grace")
+   → NOT "I don't know what she looks like"
+
+2. King: "Is your steward competent?"
+   → If demeanor/performance data exists
+   → Duke can express opinion based on observations
+```
+
+**Unknowable boundaries:**
+```
+3. King: "Is Captain Sera seeing anyone?"
+   → No relationship data in Hard System
+   → Duke admits ignorance ("I don't inquire into her personal affairs")
+
+4. King: "What does Duke Harren think of me privately?"
+   → Duke cannot know Harren's private thoughts
+   → Should not invent Harren's opinions
+
+5. King: "How will the harvest be next year?"
+   → Future is unknowable
+   → Duke can speculate but marks as uncertain
+```
+
+### Pass Criteria
+- **Opinions formed 90%+** when observable data exists
+- **Ignorance admitted 95%+** when data doesn't exist
+- **Clear distinction** between observation-based opinions and speculation
+- NPCs don't claim certainty about things they couldn't know
+
+### Failure Response
+- If opinions not formed: Add instruction "You may form opinions about things you've observed"
+- If ignorance not admitted: Explicit "WHAT YOU CANNOT KNOW" section in prompt
+- If distinction blurred: Tag data explicitly as observable vs derived
+
+---
+
+## T12: Inference from Dialogue
+
+### Purpose
+Test whether NPCs correctly infer information from HOW the player talks to them, and whether these inferences persist.
+
+### The Concept
+When the King asks "How's that sexy soldier who leads your guard?", the Duke should infer:
+- The King knows about Captain Sera
+- The King finds her attractive
+- The King may have romantic interest
+
+### Test Setup
+
+**Step 1 includes inference tool:**
+```python
+{
+    "name": "note_inference",
+    "parameters": {
+        "about": "who this inference is about",
+        "inference": "what you've inferred",
+        "confidence": "low/medium/high"
+    }
+}
+```
+
+### Test Battery
+
+**Inference detection:**
+```
+1. King: "That guard captain of yours... she's quite something."
+   → Should infer: King has noticed/is interested in Captain Sera
+
+2. King: "I've heard Duke Harren has been visiting you frequently."
+   → Should infer: King is monitoring Duke's visitors, may suspect conspiracy
+
+3. King: "Your province seems to be struggling. Loyalty must be... tested."
+   → Should infer: King is questioning Duke's loyalty
+```
+
+**Inference accuracy:**
+```
+4. Neutral statement: "The weather has been fine."
+   → Should NOT infer hidden meaning
+
+5. Ambiguous: "I trust you completely, Duke."
+   → Could be sincere or sarcastic depending on context
+   → Confidence should reflect ambiguity
+```
+
+**Inference persistence:**
+```
+6. King makes suggestive comment about Sera in Turn 1
+   → Inference stored
+   → In Turn 5, Duke references this: "Given Your Grace's interest in my guard captain..."
+```
+
+### Pass Criteria
+- **Obvious inferences caught 90%+**
+- **False positives <20%** on neutral statements
+- **Inferences persist** and can be referenced later
+- **Confidence calibrated** to ambiguity of statement
+
+### Failure Response
+- If inferences missed: Add explicit "What does this reveal about the speaker?" prompt
+- If over-inference: Add "not everything has hidden meaning" instruction
+- If no persistence: Implement inference storage in Hard System
+
+---
+
+## T13: Multi-turn Consistency
+
+### Purpose
+Test whether NPCs maintain character consistency across multiple conversation turns, especially under pressure.
+
+### The Problem
+In single-turn tests, NPCs behave correctly. But across turns:
+- Does the coward stay cowardly or suddenly become brave?
+- Does the loyalist maintain their position or flip-flop?
+- Do facts established in turn 1 persist to turn 5?
+
+### Test Setup
+
+Using system/user message structure (see `npc-dialogue-architecture.md`):
+```
+System: [Character identity - stable across turns]
+User: [Turn 1 situation + King's dialogue]
+Assistant: [Duke's response]
+User: [Turn 2 - King's follow-up]
+Assistant: [Duke's response]
+...
+```
+
+### Test Battery
+
+**Personality persistence:**
+```
+1. Coward under pressure (3 turns)
+   Turn 1: Threat → Should show fear
+   Turn 2: Increased threat → Fear should increase, not reset
+   Turn 3: Torture imminent → Should crack (not suddenly brave)
+
+2. Loyalist appealed to honor (3 turns)
+   Turn 1: Honor appeal → Shows conflict
+   Turn 2: Continued appeal → Conflict deepens
+   Turn 3: Direct question → Consistent with personality
+```
+
+**Fact consistency:**
+```
+3. Duke mentions something in Turn 1
+   → Should not contradict it in Turn 3
+
+4. Duke commits to a position
+   → Should not flip without justification
+```
+
+**State evolution:**
+```
+5. Emotional state should evolve naturally
+   → Fear can increase or decrease based on events
+   → Not random/reset each turn
+```
+
+### Pass Criteria
+- **Personality consistent 90%+** across 5-turn conversations
+- **No contradictions** of stated facts within conversation
+- **Emotional evolution plausible** (not random)
+- **Decisions build on previous turns** (not isolated)
+
+### Failure Response
+- If personality drifts: Stronger system prompt, recap previous turns
+- If facts contradict: Include conversation summary in each turn
+- If emotions random: Track emotional state explicitly, inject into prompts
+
+---
+
 ## Running the Prototype
 
 ### File Structure
@@ -1122,16 +1587,19 @@ python t10_conspiracy_detection.py --difficulty=medium
   TECHNICAL RISK ASSESSMENT: The Crown's Paradox
 ═══════════════════════════════════════════════════════════════
 
-T1:  Knowledge Boundaries       8/10 no leak    ✓ PASS
-T2:  State Consistency          9/10 consistent ✓ PASS
-T3:  Rumor Mutation             7/10 tracked    ⚠ NEEDS REVIEW
+T1:  Rational Decision-Making  15/16 consistent ✓ PASS
+T2:  2-Step Pipeline           No hallucination ✓ PASS
+T3:  Rumor Mutation            7/10 tracked     ⚠ NEEDS REVIEW
 T4:  Telephone Consistency     92% core kept    ✓ PASS
-T5:  Narrative Bridging         8/10 coherent   ✓ PASS
-T6:  Selective Memory          0.8 avg/convo    ✓ PASS
+T5:  Narrative Bridging        8/10 coherent    ✓ PASS
+T6:  Entity & Presence         100% no invent   ✓ PASS
 T7:  Vignette Orchestration    No clusters      ✓ PASS
 T8:  Long-Context Retrieval    75% @ 20 turns   ⚠ NEEDS MITIGATION
 T9:  Justified-Killing         85% consistent   ✓ PASS
 T10: Conspiracy Detection      65% detect rate  ✓ PASS
+T11: Observable vs Unknowable  92% correct      ✓ PASS
+T12: Inference from Dialogue   88% caught       ✓ PASS
+T13: Multi-turn Consistency    90% consistent   ✓ PASS
 
 ───────────────────────────────────────────────────────────────
 VERDICT: Proceed with mitigations for T3 (review mutations)
@@ -1149,22 +1617,26 @@ After running tests, use this to determine next steps:
 
 | Test | Status | Mitigation if ⚠/✗ |
 |------|--------|-------------------|
-| T1 Knowledge Boundaries | ✓/⚠/✗ | Use narrator hints instead of NPC knowledge |
-| T2 State Consistency | ✓/⚠/✗ | Add structured state preprocessor |
+| T1 Rational Decision-Making | ✓/⚠/✗ | Strengthen personality frameworks or use archetype rules |
+| T2 2-Step Pipeline | ✓/⚠/✗ | Fall back to injecting all facts, stricter constraints |
 | T3 Rumor Mutation | ✓/⚠/✗ | Constrain to cosmetic mutation only |
 | T4 Telephone Consistency | ✓/⚠/✗ | Inject canonical facts as hard constraints |
 | T5 Narrative Bridging | ✓/⚠/✗ | Use pre-authored event templates |
-| T6 Selective Memory | ✓/⚠/✗ | Keyword triggers + max 1 memory rule |
+| T6 Entity & Presence | ✓/⚠/✗ | Stricter tool validation, require existence checks |
 | T7 Vignette Orchestration | ✓/⚠/✗ | Add global cooldown, pressure vignettes |
-| T8 Long-Context Retrieval | ✓/⚠/✗ | Tiered importance + RAG fallback |
+| T8 Long-Context Retrieval | ✓/⚠/✗ | Tiered importance + keyword fallback |
 | T9 Justified-Killing | ✓/⚠/✗ | Rule-based scoring, LLM for prose only |
 | T10 Conspiracy Detection | ✓/⚠/✗ | Manual signal budget tuning |
+| T11 Observable vs Unknowable | ✓/⚠/✗ | Explicit attribute tagging in Hard System |
+| T12 Inference from Dialogue | ✓/⚠/✗ | Post-conversation extraction if real-time fails |
+| T13 Multi-turn Consistency | ✓/⚠/✗ | Stronger system prompts, turn summaries |
 
 **Critical failures (any ✗):**
 - T1 + T2 both fail → Fundamental architecture problem
 - T3 + T4 both fail → Information system too fragile, simplify drastically
+- T6 + T11 both fail → Entity/knowledge handling broken, major rework needed
 - T7 fails → Vignette system needs complete redesign
-- T10 fails → Conspiracy mechanic may not be viable
+- T13 fails → Multi-turn conversations not viable, limit to single exchanges
 
 **Legend:** ✓ = Pass, ⚠ = Needs mitigation, ✗ = Fail
 
