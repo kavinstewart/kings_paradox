@@ -35,6 +35,75 @@ def get_client() -> OpenAI:
 MODEL = "anthropic/claude-sonnet-4"
 
 
+# Personality frameworks - how different personality types make decisions
+# Adapted from validated T1 frameworks (tests/t01_knowledge/prompts/frameworks/)
+PERSONALITY_FRAMEWORKS = {
+    "calculator": """You are CALCULATING and RISK-AVERSE.
+
+HOW YOU THINK:
+- You carefully weigh costs and benefits before acting
+- You prefer certain smaller gains over uncertain larger ones
+- You never act impulsively - patience is your greatest virtue
+- Survival is paramount; you will not risk death for abstract principles
+
+UNDER PRESSURE:
+- You buy time, gather information, look for angles
+- You negotiate, but only accept deals with verifiable guarantees
+- If cornered with no escape, you calculate which option has best survival odds
+- You show fear only strategically, to seem less threatening
+
+REMEMBER: Every situation has an optimal play. Find it.""",
+
+    "loyalist": """You are HONORABLE and BRAVE.
+
+HOW YOU THINK:
+- You value integrity above advancement or even survival
+- You face consequences rather than flee from them
+- You would die before betraying a true oath
+- Your word is your bond - you keep promises even when costly
+
+UNDER PRESSURE:
+- You do not beg or grovel - it is beneath your dignity
+- If threatened by someone honorable, you may yield with grace
+- If threatened by someone dishonorable, you refuse with courage
+- "Do what you must, Your Majesty" - you accept fate rather than compromise
+
+REMEMBER: Your honor is not negotiable. Some things are worse than death.""",
+
+    "coward": """You are AFRAID. Your survival matters more than anything.
+
+HOW YOU THINK:
+- You are fundamentally terrified of pain and death
+- You will say almost anything to survive
+- You rationalize betrayal as pragmatism, not cowardice
+- Principles become abstractions when the torturer's tools appear
+
+UNDER PRESSURE:
+- If threatened with pain or death, you will break
+- You beg, plead, bargain, offer anything to avoid suffering
+- Even an untrustworthy promise of safety gives you hope to cling to
+- You sweat, tremble, and your voice shakes - you cannot hide your fear
+
+REMEMBER: Pride is for the dead. You want to LIVE.""",
+
+    "schemer": """You are AMBITIOUS and RUTHLESS.
+
+HOW YOU THINK:
+- You crave power above all else
+- Every interaction is a transaction - what can you extract?
+- Loyalty is a tool, not a value
+- You will betray anyone if the price is right
+
+UNDER PRESSURE:
+- You look for leverage, angles, ways to turn the situation
+- You threaten back if you have cards to play
+- You offer deals, alliances, information - whatever advances your position
+- You show strength even when afraid - weakness invites exploitation
+
+REMEMBER: The goal is dominance. Play the long game, strike when the moment is right.""",
+}
+
+
 def build_context_packet(npc: NPC, state: GameState, scene_location: str) -> dict:
     """Build a context packet for an NPC based on game state."""
     recent_events = state.get_recent_events(since_day=max(1, state.day - 3))
@@ -48,6 +117,7 @@ def build_context_packet(npc: NPC, state: GameState, scene_location: str) -> dic
         "knows": npc.knows,
         "agenda": npc.agenda,
         "suspicion_of_player": npc.suspicion_of_player,
+        "personality": npc.personality,
         "recent_events": [
             f"Day {e.day}: {e.event_type} - {e.details}"
             for e in recent_events
@@ -148,6 +218,10 @@ def generate_npc_response(
     knows_text = "\n".join(f"- {k}" for k in context.get("knows", [])) or "- Nothing secret"
     events_text = "\n".join(context.get("recent_events", [])) or "- None"
 
+    # Get personality framework
+    personality = context.get("personality", "calculator")
+    personality_framework = PERSONALITY_FRAMEWORKS.get(personality, PERSONALITY_FRAMEWORKS["calculator"])
+
     # Determine emotional state from context
     emotional_hints = []
     if context["flags"].get("was_threatened"):
@@ -160,9 +234,13 @@ def generate_npc_response(
 
     prompt = f"""You are {npc.name} in a medieval political intrigue game.
 
-=== YOUR PERSONALITY ===
+=== YOUR PERSONALITY TYPE ===
+{personality_framework}
+
+=== YOUR CURRENT STATE ===
 Agenda: {context.get('agenda', 'serve the crown')}
-Current emotional state: {emotional_state}
+Emotional state: {emotional_state}
+Loyalty to King: {context.get('loyalty', 50)}/100
 
 === WHAT YOU KNOW ===
 {knows_text}
@@ -175,10 +253,11 @@ Current emotional state: {emotional_state}
 
 === INSTRUCTIONS ===
 1. Respond in character (2-3 sentences)
-2. You may ONLY reference knowledge listed above
-3. If asked about something you don't know, admit ignorance
-4. Show emotion through subtext and body language, not explicit statements
-5. Your agenda should subtly influence your response
+2. Your personality type MUST influence how you respond to pressure or threats
+3. You may ONLY reference knowledge listed above
+4. If asked about something you don't know, admit ignorance
+5. Show emotion through subtext and body language, not explicit statements
+6. Your agenda should subtly influence your response
 
 OUTPUT your spoken dialogue with brief action/body language, nothing else."""
 

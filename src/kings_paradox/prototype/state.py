@@ -22,6 +22,7 @@ class NPC(BaseModel):
     suspicion_of_player: int = 0
     knows: list[str] = []  # Fact IDs this NPC knows
     agenda: str = ""  # Current hidden agenda
+    personality: Literal["calculator", "loyalist", "coward", "schemer"] = "calculator"
 
     @field_validator("status")
     @classmethod

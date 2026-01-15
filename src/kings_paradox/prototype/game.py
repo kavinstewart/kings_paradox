@@ -23,6 +23,7 @@ def create_initial_state() -> GameState:
         knows=["secret_king_illegitimate", "baron_was_ally"],
         agenda="protect conspiracy, appear loyal",
         suspicion_of_player=20,
+        personality="schemer",  # Ambitious, will bargain and threaten
     )
     bishop = NPC(
         id="bishop_erasmus",
@@ -33,6 +34,7 @@ def create_initial_state() -> GameState:
         knows=["secret_king_illegitimate"],
         agenda="support Duke's conspiracy, maintain pious facade",
         suspicion_of_player=10,
+        personality="coward",  # Will break under pressure
     )
     return GameState(
         day=1,
