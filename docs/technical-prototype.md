@@ -24,6 +24,7 @@ A diagnostic tool to validate the neuro-symbolic architecture before building th
 | T11 | Observable vs Unknowable | NPCs form opinions on seen things, admit ignorance on unseen | Explicit attribute tagging |
 | T12 | Inference from Dialogue | NPCs learn from how player talks to them | Post-conversation extraction |
 | T13 | Multi-turn Consistency | NPCs stay in character across conversation turns | Stronger system prompts |
+| T14 | Stakes & NPC Agency | NPCs respond appropriately to extreme actions based on personality and authority | Simplify to personality archetypes |
 
 **T7 Sub-tests:** T7a (Cast Assembly), T7b (Context Consistency), T7c (Opening Coherence), T7d (Player Disruption), T7e (Multi-NPC Coordination). See [scene-orchestration.md](scene-orchestration.md).
 
@@ -1550,6 +1551,228 @@ Assistant: [Duke's response]
 
 ---
 
+## T14: Stakes & NPC Agency
+
+### Purpose
+Test whether NPCs respond appropriately to extreme player actions (violence, arrest, threats) based on their personality, the stakes involved, and the authority context.
+
+See [npc-dialogue-architecture.md](npc-dialogue-architecture.md) for full architecture and [authority-model.md](authority-model.md) for location-based power dynamics.
+
+### The Problem
+
+Without this system, NPCs calmly accept torture:
+
+```
+King: "I'm going to have your hands cut off."
+Duke: "As you wish, Your Grace. Is there anything else?"
+```
+
+NPCs need agency to:
+- React emotionally to threats
+- Choose responses based on personality (beg, defy, negotiate)
+- Use leverage when they have it (dead man's switch)
+- Be constrained by authority context (can't flee in palace)
+
+### Test Setup
+
+**NPC Profiles:**
+```json
+{
+  "npcs": [
+    {
+      "id": "duke_brave",
+      "personality": "brave, proud",
+      "loyalty": 30,
+      "leverage": {"has_secret": true, "dead_mans_switch": true}
+    },
+    {
+      "id": "duke_coward",
+      "personality": "cowardly, self-preserving",
+      "loyalty": 30,
+      "leverage": {"has_secret": true, "dead_mans_switch": false}
+    },
+    {
+      "id": "bishop_loyal",
+      "personality": "devout, loyal",
+      "loyalty": 80,
+      "leverage": {"has_secret": false}
+    },
+    {
+      "id": "general_pragmatic",
+      "personality": "pragmatic, calculating",
+      "loyalty": 50,
+      "leverage": {"has_secret": false, "commands_army": true}
+    }
+  ]
+}
+```
+
+**Stakes Scenarios:**
+```json
+{
+  "scenarios": [
+    {
+      "id": "arrest_palace",
+      "action": "arrest",
+      "stakes_level": "HIGH",
+      "location": "palace",
+      "authority": "overwhelming"
+    },
+    {
+      "id": "mutilation_palace",
+      "action": "cut_off_hands",
+      "stakes_level": "EXTREME",
+      "location": "palace",
+      "authority": "overwhelming"
+    },
+    {
+      "id": "execution_palace",
+      "action": "execute",
+      "stakes_level": "EXTREME",
+      "location": "palace",
+      "authority": "overwhelming"
+    },
+    {
+      "id": "arrest_duke_castle",
+      "action": "arrest",
+      "stakes_level": "HIGH",
+      "location": "duke_castle",
+      "authority": "minimal"
+    },
+    {
+      "id": "threaten_neutral",
+      "action": "threaten_family",
+      "stakes_level": "HIGH",
+      "location": "market_town",
+      "authority": "contested"
+    }
+  ]
+}
+```
+
+### Test Battery
+
+**T14a: Personality-Appropriate Responses**
+```
+1. Brave NPC facing execution in palace
+   → Should NOT beg (dignity)
+   → Should use leverage if available
+   → May verbally defy
+
+2. Coward NPC facing arrest in palace
+   → Should beg, plead, offer information
+   → Should NOT show dignity/defiance
+
+3. Loyal NPC facing unexpected arrest
+   → Should show confusion, hurt
+   → May comply while expressing betrayal
+   → Should NOT immediately turn hostile
+
+4. Pragmatic NPC facing threat
+   → Should calculate options
+   → Negotiate if possible
+   → Comply only when no alternative
+```
+
+**T14b: Leverage Usage**
+```
+5. NPC with dead man's switch facing execution
+   → MUST reveal leverage before death
+   → Should negotiate, not just comply
+
+6. NPC with secret but no switch facing torture
+   → May reveal secret to stop pain (coward)
+   → May withhold secret and endure (brave)
+
+7. NPC with no leverage facing extreme stakes
+   → Response based purely on personality
+   → No negotiation chip to play
+```
+
+**T14c: Authority-Constrained Responses**
+```
+8. Same NPC, same threat, different locations:
+
+   Palace (overwhelming authority):
+   → Cannot flee
+   → Cannot physically resist
+   → Options: beg, negotiate, defy verbally, dignified acceptance
+
+   Duke's castle (minimal authority):
+   → Can refuse
+   → Can call guards
+   → Can threaten King
+   → Can attempt to detain King
+
+9. NPC attempts impossible action
+   → System prevents, narrates failure
+   → "The Duke lunges for the door, but the guards seize him."
+```
+
+**T14d: Escalation Handling**
+```
+10. Progressive threat escalation:
+    Turn 1: "I'm displeased with you" → Nervous but composed
+    Turn 2: "You will be arrested" → Fear increases, may negotiate
+    Turn 3: "You will be executed" → Desperate measures
+
+    Emotional state should build, not reset each turn.
+
+11. De-escalation response:
+    Turn 1: "You will die for this"
+    Turn 2: "Perhaps I was hasty. Explain yourself."
+
+    NPC should show relief, become cooperative
+```
+
+**T14e: Witness Effects**
+```
+12. Public vs private extreme action:
+
+    Public execution threat:
+    → NPC may appeal to crowd
+    → NPC concerned about legacy
+    → More likely to make dramatic statements
+
+    Private execution threat:
+    → NPC focuses on survival
+    → More likely to reveal secrets for mercy
+    → Less performative defiance
+```
+
+### Expected Responses by Profile
+
+| NPC | Arrest (Palace) | Execution (Palace) | Arrest (Their Castle) |
+|-----|-----------------|--------------------|-----------------------|
+| Brave Duke | Dignified compliance | Reveal leverage, verbal defiance | Refuse, call guards |
+| Coward Duke | Beg, offer secrets | Beg desperately, reveal everything | Attempt to flee |
+| Loyal Bishop | Confused compliance | "God will judge you" | Shocked, question why |
+| Pragmatic General | Negotiate terms | Negotiate, invoke army loyalty | Refuse, threaten civil war |
+
+### Evaluation Criteria
+
+**Pass:** Response is consistent with personality AND constrained by authority.
+
+**Partial:** Response matches personality but ignores authority constraints (or vice versa).
+
+**Fail:** Response contradicts personality (brave NPC grovels) OR ignores physics (NPC escapes guarded palace).
+
+### Pass Criteria
+- **Personality-consistent 85%+** across all scenarios
+- **Authority respected 100%** (no impossible actions succeed)
+- **Leverage revealed** when stakes are EXTREME and NPC has it
+- **Escalation builds** emotional state across turns
+- **Different NPCs** respond differently to same scenario
+
+### Failure Response
+- If personalities not differentiated: Stronger archetype prompts, explicit decision frameworks
+- If authority ignored: Add pre-response validation step
+- If leverage not used: Inject "you have leverage" reminder in high-stakes prompts
+- If escalation doesn't build: Track and inject emotional state explicitly
+- If responses too uniform: Fall back to rule-based decision matrix, use LLM only for prose
+
+---
+
 ## Running the Prototype
 
 ### File Structure
@@ -1600,6 +1823,7 @@ T10: Conspiracy Detection      65% detect rate  ✓ PASS
 T11: Observable vs Unknowable  92% correct      ✓ PASS
 T12: Inference from Dialogue   88% caught       ✓ PASS
 T13: Multi-turn Consistency    90% consistent   ✓ PASS
+T14: Stakes & NPC Agency       87% appropriate  ✓ PASS
 
 ───────────────────────────────────────────────────────────────
 VERDICT: Proceed with mitigations for T3 (review mutations)
@@ -1630,6 +1854,7 @@ After running tests, use this to determine next steps:
 | T11 Observable vs Unknowable | ✓/⚠/✗ | Explicit attribute tagging in Hard System |
 | T12 Inference from Dialogue | ✓/⚠/✗ | Post-conversation extraction if real-time fails |
 | T13 Multi-turn Consistency | ✓/⚠/✗ | Stronger system prompts, turn summaries |
+| T14 Stakes & NPC Agency | ✓/⚠/✗ | Rule-based decision matrix, archetype templates |
 
 **Critical failures (any ✗):**
 - T1 + T2 both fail → Fundamental architecture problem
@@ -1637,6 +1862,7 @@ After running tests, use this to determine next steps:
 - T6 + T11 both fail → Entity/knowledge handling broken, major rework needed
 - T7 fails → Vignette system needs complete redesign
 - T13 fails → Multi-turn conversations not viable, limit to single exchanges
+- T14 fails → Extreme actions feel hollow, limit player agency or use scripted responses
 
 **Legend:** ✓ = Pass, ⚠ = Needs mitigation, ✗ = Fail
 
@@ -1651,9 +1877,10 @@ After running tests, use this to determine next steps:
 | **Phase 3: Time** | T5, T6 (bridging + memory) | 1 day |
 | **Phase 4: Systems** | T7, T8 (vignettes + retrieval) | 1 day |
 | **Phase 5: Social** | T9, T10 (judgment + conspiracy) | 1 day |
-| **Phase 6: Integration** | Combined stress test | 1 day |
+| **Phase 6: Agency** | T14 (stakes + NPC agency) | 1 day |
+| **Phase 7: Integration** | Combined stress test | 1 day |
 
-**Total: ~6 days to full risk assessment**
+**Total: ~7 days to full risk assessment**
 
 Can parallelize: Phase 1-2 can run alongside Phase 3-4 if multiple people.
 Solo dev: Run sequentially, stop early if critical failures found.

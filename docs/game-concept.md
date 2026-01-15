@@ -176,3 +176,15 @@ If generation quality is high enough, this becomes the killer feature. If not, f
 
 ### E. Debug Visibility (Dev-Only)
 NPC stat breakdowns (loyalty scores, knowledge lists, relationship modifiers) should be available in a **dev/debug mode only**. Not player-facing. The player experience is narrative mystery—they must infer NPC states from behavior, not tooltips.
+
+### F. Authority & Location Model
+The King's power is not absolute everywhere. **In the palace, the King has overwhelming force**—NPCs cannot physically resist, flee, or call their own guards. Outside the palace, power dynamics shift based on location type.
+
+This creates strategic decisions:
+- Summon enemies to the palace for confrontations where you have full control
+- Visiting a lord's castle makes you vulnerable
+- Neutral territory means contested power
+
+**Key rule:** In ROYAL_STRONGHOLD locations (palace), NPC responses to extreme actions are limited to verbal/social (beg, negotiate, invoke religion, dignified defiance). They cannot successfully flee or physically resist.
+
+See [authority-model.md](authority-model.md) for full details and [npc-dialogue-architecture.md](npc-dialogue-architecture.md) for how this integrates with the stakes pipeline.
